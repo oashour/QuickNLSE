@@ -10,11 +10,12 @@
 #define M_PI 3.14159265358979323846264338327
 
 // given stuff
-#define XNODES	10000			// number of Fourier Modes
-#define TNODES	10000	    // number of temporal nodes
-#define L		1000.0            // Spatial Period
-#define DELTAX	(L / XNODES)    // spatial step size
-#define DELTAT	0.0000001         // temporal step size
+#define XNODES	1000				// number of Fourier Modes
+#define TNODES	100000				// number of temporal nodes
+#define L		30.0				// Spatial Period
+#define Tmax	10.0                // Max time
+#define DELTAX	(2*L / XNODES) 		// spatial step size
+#define DELTAT	(Tmax / TNODES)     // temporal step size
 
 void nonlin(fftw_complex *psi, double dt);
 void lin(fftw_complex *psi, double *k2, double dt);
@@ -38,11 +39,18 @@ int main(void)
 	forward = fftw_plan_dft_1d(XNODES, psi, psi, FFTW_FORWARD, FFTW_ESTIMATE);
 	backward = fftw_plan_dft_1d(XNODES, psi, psi, FFTW_BACKWARD, FFTW_ESTIMATE);
 
+    double dkx=2*M_PI/XNODES/DELTAX;
+	double *KX;
+	KX=(double*)malloc(XNODES*sizeof(double));
+	for(int i=XNODES/2;i>=0;i--) KX[XNODES/2-i]=(XNODES/2-i)*dkx;
+	for(int i=XNODES/2+1;i<XNODES;i++) KX[i]=(i-XNODES)*dkx; 
+
 	for (int i = 0; i < XNODES; i++)
 	{
 		x[i] = (i-XNODES/2)*DELTAX;
-		k2[i] = 4*(i-XNODES/2)*(i-XNODES/2)*M_PI*M_PI/L/L;
-		psi[i] = sqrt(2.0)/(cosh(x[i])) + 0*I;  
+		k2[i] = KX[i]*KX[i];
+		//psi[i] = sqrt(2.0)/(cosh(x[i])) + 0*I;  
+		psi[i] = 4.0*exp(-(x[i]*x[i])/4.0/4.0) + 0*I;
 		psi_0[i] = psi[i];  
 	}
     
@@ -50,19 +58,26 @@ int main(void)
 	t1=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
 	for (int i = 1; i < TNODES; i++)
 	{
-		// nonlinear
-		nonlin(psi, DELTAT*0.5);
 		// forward transform
 		fftw_execute(forward);
 		// linear
-		lin(psi, k2, DELTAT);
+		lin(psi, k2, DELTAT/2);  
 		// backward tranform
 		fftw_execute(backward);
 		// scale down
 		for(int i = 0; i < XNODES; i++)
 			psi[i] = psi[i]/XNODES;
 		// nonlinear
-		nonlin(psi, DELTAT*0.5);
+		nonlin(psi, DELTAT);
+		// forward transform
+		fftw_execute(forward);
+		// linear
+		lin(psi, k2, DELTAT/2);
+		// backward tranform
+		fftw_execute(backward);
+		// scale down
+		for(int i = 0; i < XNODES; i++)
+			psi[i] = psi[i]/XNODES;
 	}
 	rtn=gettimeofday(&tp, NULL);
 	t2=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
