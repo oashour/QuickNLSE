@@ -1,171 +1,167 @@
-// nlse (1+1)D
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+/**********************************************************************************
+ * Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation        *
+ * using second order split step Fourier method.                                  *
+ * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+ * ********************************************************************************/
 #include <sys/time.h>
 #include <stddef.h>
-#include <complex.h>
+#include "../lib/helpers.h"
 #include <fftw3.h>
 
 #define M_PI 3.14159265358979323846264338327
 
-// given stuff
-#define XNODES	1000				// number of Fourier Modes
-#define YNODES	1000				// number of y- fourier modes
-#define TNODES	100000				// number of temporal nodes
-#define L		50.0				// Spatial Period
-#define Tmax	10.0                // Max time
-#define DELTAX	(2*L / XNODES) 		// spatial step size
-#define DELTAT	(Tmax / TNODES)     // temporal step size
+// Grid Parameters
+#define XN	256						// Number of x-spatial nodes
+#define YN	256						// Number of y-spatial nodes
+#define TN	1000					// Number of temporal nodes
+#define LX	50.0					// x-spatial domain [-LX,LX)
+#define LY	50.0					// y-spatial domain [-LY,LY)
+#define TT	10.0            		// Max time
+#define DX	(2*LX / XN)				// x-spatial step size
+#define DY	(2*LY / YN)				// y-spatial step size
+#define DT	(TT / TN)    			// temporal step size
 
 // Gaussian Parameters                                     
-#define  A_s 	(3.0/sqrt(8.0))
-#define  Rad_s 	(sqrt(32.0/9.0))
+#define  A_S 	(3.0/sqrt(8.0))
+#define  R_S 	(sqrt(32.0/9.0))
 #define  A 		0.6
-#define  Rad 	(1.0/(A*sqrt(1.0-A*A)))   
+#define  R 	(1.0/(A*sqrt(1.0-A*A)))   
 
-// Index linearization for kernels [x,y] = [x * width + y] 
-#define INDEX_C  i    * XNODES +  j		//[i  ,j  ] 
-#define INDEX_1 (i+1) * XNODES +  j		//[i+1,j  ]
-#define INDEX_2 (i-1) * XNODES +  j		//[i-1,j  ]
-#define INDEX_3  i    * XNODES + (j+1)	//[i  ,j+1]
-#define INDEX_4  i    * XNODES + (j-1)	//[i  ,j-1]   
+// Index linearization
+#define ind(i,j)  (i*XN+j)			// [i  ,j  ] 
 
 // Function prototypes
 void nonlin(fftw_complex *psi, double dt);
 void lin(fftw_complex *psi, double *k2, double dt);
-void checker(double *R, double *I, double *max, int step);
-int max_index(double arr[], int size);
-void matlab_gen(double *R_0, double *I_0, double *R, double *I, double *max); 
+void normalize(fftw_complex *psi, int size);
 
 int main(void)
-{
-    printf("DELTAX: %f, DELTAT: %f, dt/dx^2: %f\n", DELTAX, DELTAT, DELTAT/(DELTAX*DELTAX));
-
-    double t1,t2,elapsed;
+{                                                                          
+    // Timer initialization variables
+	double t1,t2,elapsed;
 	struct timeval tp;
-	int rtn;
 
-	// allocate and initialize the arrays
-    double *x = (double*)malloc(sizeof(double) * XNODES);
-	double *y = (double*)malloc(sizeof(double) * YNODES);
-	double *k2x = (double*)malloc(sizeof(double) * XNODES);
-	double *k2y = (double*)malloc(sizeof(double) * YNODES);
-	double *max = (double*)malloc(sizeof(double) * TNODES);
-	fftw_complex *psi = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * XNODES * YNODES);
-	fftw_complex *psi_0 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * XNODES * YNODES);
+	// Allocate and initialize the arrays
+    double *x = (double*)malloc(sizeof(double) * XN);
+	double *y = (double*)malloc(sizeof(double) * YN);
+	double *k2 = (double*)malloc(sizeof(double) * XN * YN);
+	double *max = (double*)malloc(sizeof(double) * TN);
+	fftw_complex *psi = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * XN * YN);
+	fftw_complex *psi_0 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * XN * YN);
 	
+	// Create transform plans
 	fftw_plan forward, backward;
-	forward = fftw_plan_dft_2d(XNODES, YNODES, psi, psi, FFTW_FORWARD, FFTW_ESTIMATE);
-	backward = fftw_plan_dft_2d(XNODES, YNODES, psi, psi, FFTW_BACKWARD, FFTW_ESTIMATE);
+	forward = fftw_plan_dft_2d(XN, YN, psi, psi, FFTW_FORWARD, FFTW_ESTIMATE);
+	backward = fftw_plan_dft_2d(XN, YN, psi, psi, FFTW_BACKWARD, FFTW_ESTIMATE);
 
-    double dkx=2*M_PI/XNODES/DELTAX;
-	double *KX;
-	KX=(double*)malloc(XNODES*sizeof(double));
-	for(int i=XNODES/2;i>=0;i--) KX[XNODES/2-i]=(XNODES/2-i)*dkx;
-	for(int i=XNODES/2+1;i<XNODES;i++) KX[i]=(i-XNODES)*dkx; 
+    // X and Y wave numbers
+	double dkx = 2*M_PI/XN/DX;
+	double *kx = (double*)malloc(XN * sizeof(double));
+	for(int i = XN/2; i >= 0; i--) 
+		kx[XN/2 - i]=(XN/2 - i) * dkx;
+	for(int i = XN/2+1; i < XN; i++) 
+		kx[i]=(i - XN) * dkx; 
 
-    double dky=2*M_PI/YNODES/DELTAX;
-	double *KY;
-	KX=(double*)malloc(XNODES*sizeof(double));
-	for(int i=YNODES/2;i>=0;i--) KX[YNODES/2-i]=(YNODES/2-i)*dky;
-	for(int i=YNODES/2+1;i<YNODES;i++) KX[i]=(i-YNODES)*dky; 
+	double dky = 2*M_PI/YN/DY;
+	double *ky = (double*)malloc(YN * sizeof(double));
+	for(int i = YN/2; i >= 0; i--) 
+		ky[YN/2 - i]=(YN/2 - i) * dky;
+	for(int i = YN/2+1; i < YN; i++) 
+		ky[i]=(i - YN) * dky; 
 
-	for (int i = 0; i < XNODES; i++)
-	{
-		x[i] = (i-XNODES/2)*DELTAX;
-		k2[i] = KX[i]*KX[i];
-		//psi[i] = sqrt(2.0)/(cosh(x[i])) + 0*I;  
-		psi[i] = 4.0*exp(-(x[i]*x[i])/4.0/4.0) + 0*I;
-		psi_0[i] = psi[i];  
-	}
+	// initialize x and y.
+	for(int i = 0; i < XN ; i++)
+		x[i] = (i-XN/2)*DX;
     
-	rtn=gettimeofday(&tp, NULL);
+	for(int i = 0; i < YN ; i++)
+		y[i] = (i-YN/2)*DY;
+
+    // Initial Conditions and square of wave number
+    for(int j = 0; j < YN; j++)
+		for(int i = 0; i < XN; i++)
+			{
+				psi[ind(i,j)] = A_S*A*exp(-(x[i]*x[i]+y[j]*y[j])
+													/(2*R*R*R_S*R_S)) + 0*I; 
+				psi_0[ind(i,j)] = psi[ind(i,j)];
+				k2[ind(i,j)] = kx[i]*kx[i] + ky[j]*ky[j];
+			}   
+	
+	// Find max(|psi|) for initial pulse.
+	cmax_psi(psi, max, 0, XN*YN);
+    // Start time evolution and start performance timing
+	gettimeofday(&tp, NULL);
 	t1=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
-	for (int i = 1; i < TNODES; i++)
+	for (int i = 1; i < TN; i++)
 	{
 		// forward transform
 		fftw_execute(forward);
-		// linear
-		lin(psi, k2, DELTAT/2);  
-		// backward tranform
+		// linear calculation
+		lin(psi, k2, DT/2);  
+		// backward transform
 		fftw_execute(backward);
-		// scale down
-		for(int i = 0; i < XNODES; i++)
-			psi[i] = psi[i]/XNODES;
-		// nonlinear
-		nonlin(psi, DELTAT);
+		// normalize the transform
+		normalize(psi, XN*YN);
+		// nonlinear calculation
+		nonlin(psi, DT);
 		// forward transform
 		fftw_execute(forward);
-		// linear
-		lin(psi, k2, DELTAT/2);
+		// linear calculation
+		lin(psi, k2, DT/2);
 		// backward tranform
 		fftw_execute(backward);
-		// scale down
-		for(int i = 0; i < XNODES; i++)
-			psi[i] = psi[i]/XNODES;
+		// normalize the transform
+		normalize(psi, XN*YN);
+		// find maximum |psi|
+		cmax_psi(psi, max, i, XN*YN);
 	}
-	rtn=gettimeofday(&tp, NULL);
+	
+	// End of time evolution and end and print performance timing
+	gettimeofday(&tp, NULL);
 	t2=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
 	elapsed=t2-t1;
-	
-	FILE *time_file;
-	time_file = fopen("cpu_time.txt", "a"); 
-	fprintf(time_file, "%f, ", elapsed);
-	fclose(time_file);
+	printf("%f\n", elapsed);
 
-	matlab_plot(psi_0, psi);
+	// plot results
+	cm_plot_2d(psi_0, psi, max, LX, LY, XN, YN, TN, "plotting.m");
 
+	// garbage collection
 	fftw_destroy_plan(forward);
 	fftw_destroy_plan(backward);
 	fftw_free(psi_0); 
 	fftw_free(psi);
 	free(x);
+	free(y);
 	free(k2);
+	free(kx);
+	free(ky);
+	free(max);
 
 	return 0;
 }
 
-void nonlin(fftw_complex *psi, double dt)
-{                  
-	for(int i = 0; i < XNODES; i++)
-	{
-    	psi[i] = cexp(I * cabs(psi[i]) * cabs(psi[i]) * dt)*psi[i];
-	}
-}
-
+// linear function
 void lin(fftw_complex *psi, double *k2, double dt)
 {                  
-	for(int i = 0; i < XNODES; i++)
-	{
-    	psi[i] = cexp(-I * k2[i] * dt)*psi[i];
-	}
+	for(int i = 0; i < XN; i++)
+		for(int j = 0; j < XN; j++)
+    		psi[ind(i,j)] = cexp(-I * k2[ind(i,j)] * dt)*psi[ind(i,j)];
 }
 
-void matlab_plot(fftw_complex *psi_0, fftw_complex *psi)
+// nonlinear function
+void nonlin(fftw_complex *psi, double dt)
+{                  
+	double psi2;
+	for(int i = 0; i < XN; i++)
+		for(int j = 0; j < YN; j++)
+		{
+    		psi2 = cabs(psi[ind(i,j)])*cabs(psi[ind(i,j)]);
+			psi[ind(i,j)] = cexp(I * (psi2-psi2*psi2) * dt) * psi[ind(i,j)];
+		}
+}
+
+// normalization
+void normalize(fftw_complex *psi, int size)
 {
-	FILE *matlab_file;
-	matlab_file = fopen("plot_CPU_f.m", "w");
-
-	fprintf(matlab_file, "x = linspace(%f, %f, %d); \n", -L, L, XNODES);                                                                 
-
-	fprintf(matlab_file, "psi_0 = [");
-
-	for(int i = 0; i < XNODES; i++)	
-		fprintf(matlab_file, "%0.10f ", cabs(psi_0[i]));
-	fprintf(matlab_file,"];\n");                                                                 
-
-	fprintf(matlab_file, "psi_f = [");
-	for(int i = 0; i < XNODES; i++)	
-		fprintf(matlab_file, "%0.10f ", cabs(psi[i]));
-	fprintf(matlab_file,"];\n");                                                                 
-	
-	fprintf(matlab_file, "plot(x, psi_0, '-r', 'LineWidth', 1); grid on;\n"
-						 "hold on\n"
-						 "plot(x, psi_f, '--b', 'LineWidth', 1);\n"
-						 "legend('t = 0', 't = %f', 0);\n"
-						 "title('Soliton Solution for CPU');\n"
-						 "xlabel('x values'); ylabel('|psi|');", DELTAT*TNODES);
-	fclose(matlab_file);
+		for(int i = 0; i < size; i++)
+			psi[i] = psi[i]/size;
 }
-

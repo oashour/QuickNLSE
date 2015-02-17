@@ -39,11 +39,14 @@ int main(void)
 	forward = fftw_plan_dft_1d(XNODES, psi, psi, FFTW_FORWARD, FFTW_ESTIMATE);
 	backward = fftw_plan_dft_1d(XNODES, psi, psi, FFTW_BACKWARD, FFTW_ESTIMATE);
 
-    double dkx=2*M_PI/XNODES/DELTAX;
+    // generate wave number (move into function)
+	double dkx=2*M_PI/XNODES/DELTAX;
 	double *KX;
 	KX=(double*)malloc(XNODES*sizeof(double));
-	for(int i=XNODES/2;i>=0;i--) KX[XNODES/2-i]=(XNODES/2-i)*dkx;
-	for(int i=XNODES/2+1;i<XNODES;i++) KX[i]=(i-XNODES)*dkx; 
+	for(int i = XNODES/2; i >= 0; i--) 
+		KX[XNODES/2-i]=(XNODES/2-i)*dkx;
+	for(int i = XNODES/2+1; i < XNODES; i++)
+		KX[i]=(i-XNODES)*dkx; 
 
 	for (int i = 0; i < XNODES; i++)
 	{
@@ -103,17 +106,13 @@ int main(void)
 void nonlin(fftw_complex *psi, double dt)
 {                  
 	for(int i = 0; i < XNODES; i++)
-	{
     	psi[i] = cexp(I * cabs(psi[i]) * cabs(psi[i]) * dt)*psi[i];
-	}
 }
 
 void lin(fftw_complex *psi, double *k2, double dt)
 {                  
 	for(int i = 0; i < XNODES; i++)
-	{
     	psi[i] = cexp(-I * k2[i] * dt)*psi[i];
-	}
 }
 
 void matlab_plot(fftw_complex *psi_0, fftw_complex *psi)
