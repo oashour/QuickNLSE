@@ -41,8 +41,9 @@ int main(void)
 	for(int i = 0; i < XNODES ; i++)
 	{
 		h_x[i] = (i-XNODES/2)*DELTAX;
-		h_R[i]	= sqrt(2.0)/(cosh(h_x[i]));	// initial
+//		h_R[i]	= sqrt(2.0)/(cosh(h_x[i]));	// initial
 		h_I[i]	= 0;    					// initial
+		h_R[i]	= 2*exp(-(h_x[i]*h_x[i])/2.0/2.0);	// initial
 	}
     
     // allocate arrays on device and copy them
