@@ -16,7 +16,7 @@
 #define TN	1000					// Number of temporal nodes
 #define LX	50.0					// x-spatial domain [-LX,LX)
 #define LY	50.0					// y-spatial domain [-LY,LY)
-#define TT	10.0            		// Max time
+#define TT	100.0            		// Max time
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DY	(2*LY / YN)				// y-spatial step size
 #define DT	(TT / TN)    			// temporal step size
@@ -25,7 +25,7 @@
 #define  A_S 	(3.0/sqrt(8.0))
 #define  R_S 	(sqrt(32.0/9.0))
 #define  A 		0.6
-#define  R 	(1.0/(A*sqrt(1.0-A*A)))   
+#define  R 		(1.0/(A*sqrt(1.0-A*A)))   
 
 // Index linearization
 #define ind(i,j)  (i*XN+j)			// [i  ,j  ] 

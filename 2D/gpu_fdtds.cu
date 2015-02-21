@@ -6,26 +6,25 @@
 #define XN	256				   		// Number of x-spatial nodes
 #define YN	256						// Number of y-spatial nodes
 #define TN	10000					// Number of temporal nodes
-#define LX	50.0					// x-spatial domain [-LX,LX)
-#define LY	50.0					// y-spatial domain [-LY,LY)
-#define TT	10.0            		// Max time
+#define LX	50.0f					// x-spatial domain [-LX,LX)
+#define LY	50.0f					// y-spatial domain [-LY,LY)
+#define TT	10.0f            		// Max time
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DY	(2*LY / YN)				// y-spatial step size
 #define DT	(TT / TN)    			// temporal step size
 
 // Gaussian Parameters                                     
-#define  A_S 	(3.0/sqrt(8.0))
-#define  R_S 	(sqrt(32.0/9.0))
-#define  A 		0.6
-#define  R 		(1.0/(A*sqrt(1.0-A*A)))   
+#define  A_S 	(3.0f/sqrt(8.0f))
+#define  R_S 	(sqrt(32.0f/9.0f))
+#define  A 		0.6f
+#define  R 		(1.0f/(A*sqrt(1.0f-A*A)))   
 
 // Index linearization
 #define ind(i,j)  ((i)*XN+(j)) 		// [i  ,j  ] 
-
 // Function prototypes 
-__global__ void Re_lin_kernel(double *Re, double *Im, double dt);
-__global__ void Im_lin_kernel(double *Re, double *Im, double dt);
-__global__ void nonlin_kernel(double *Re, double *Im, double dt);
+__global__ void Re_lin_kernel(float *Re, float *Im, float dt);
+__global__ void Im_lin_kernel(float *Re, float *Im, float dt);
+__global__ void nonlin_kernel(float *Re, float *Im, float dt);
 
 int main(void)
 {
@@ -39,13 +38,13 @@ int main(void)
 	cudaEventCreate(&endEvent);
 	
     // allocate x, y, R and I on host. Max will be use to store max |psi|
-	double *h_x 	= (double*)malloc(sizeof(double) * XN);
-	double *h_y 	= (double*)malloc(sizeof(double) * YN);
-	double *h_max 	= (double*)malloc(sizeof(double) * TN);
-	double *h_Re 	= (double*)malloc(sizeof(double) * XN * YN);
-    double *h_Im	= (double*)malloc(sizeof(double) * XN * YN);   
-	double *h_Re_0 	= (double*)malloc(sizeof(double) * XN * YN);
-    double *h_Im_0	= (double*)malloc(sizeof(double) * XN * YN);   
+	float *h_x 	= (float*)malloc(sizeof(float) * XN);
+	float *h_y 	= (float*)malloc(sizeof(float) * YN);
+	float *h_max 	= (float*)malloc(sizeof(float) * TN);
+	float *h_Re 	= (float*)malloc(sizeof(float) * XN * YN);
+    float *h_Im	= (float*)malloc(sizeof(float) * XN * YN);   
+	float *h_Re_0 	= (float*)malloc(sizeof(float) * XN * YN);
+    float *h_Im_0	= (float*)malloc(sizeof(float) * XN * YN);   
 
 	// initialize x and y.
 	for(int i = 0; i < XN ; i++)
@@ -66,18 +65,18 @@ int main(void)
 			}
 	
 	// Allocate device arrays and copy from host.
-	double *d_Re, *d_Im;
-	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(double) * XN*YN));
-	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(double) * XN*YN));
-	CUDAR_SAFE_CALL(cudaMemcpy(d_Re, h_Re, sizeof(double) * XN*YN, cudaMemcpyHostToDevice));
-	CUDAR_SAFE_CALL(cudaMemcpy(d_Im, h_Im, sizeof(double) * XN*YN, cudaMemcpyHostToDevice));
+	float *d_Re, *d_Im;
+	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(float) * XN*YN));
+	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(float) * XN*YN));
+	CUDAR_SAFE_CALL(cudaMemcpy(d_Re, h_Re, sizeof(float) * XN*YN, cudaMemcpyHostToDevice));
+	CUDAR_SAFE_CALL(cudaMemcpy(d_Im, h_Im, sizeof(float) * XN*YN, cudaMemcpyHostToDevice));
 
 	// Initialize the grid
 	dim3 blocksPerGrid((XN+15)/16, (YN+15)/16, 1);
 	dim3 threadsPerBlock(16, 16, 1);
 
 	// print max |psi| for initial conditions
-	max_psi(d_Re, d_Im, h_max, 0, XN*YN);
+	max_psif(d_Re, d_Im, h_max, 0, XN*YN);
 	// Begin timing
 	cudaEventRecord(beginEvent, 0);
 	for (int i = 1; i < TN; i++)
@@ -96,7 +95,7 @@ int main(void)
         Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// find max psi
-		max_psi(d_Re, d_Im, h_max, i, XN*YN);
+		max_psif(d_Re, d_Im, h_max, i, XN*YN);
 	}
 	// End timing
 	cudaEventRecord(endEvent, 0);
@@ -109,12 +108,12 @@ int main(void)
 	printf("Time elapsed: %f.\n", timeValue);
 
 	
-	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(double)*XN*YN, 
+	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(float)*XN*YN, 
 															cudaMemcpyDeviceToHost));
-	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(double)*XN*YN, 
+	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(float)*XN*YN, 
 															cudaMemcpyDeviceToHost));
 	// Generate MATLAB file to plot max |psi| and the initial and final pulses
-	m_plot_2d(h_Re_0, h_Im_0, h_Re, h_Im, h_max, LX, LY, XN, YN, TN, "gpu_fdtd.m");
+	m_plot_2df(h_Re_0, h_Im_0, h_Re, h_Im, h_max, LX, LY, XN, YN, TN, "gpu_fdtds.m");
 
 	// wrap up                                                  
 	free(h_Re); 
@@ -130,7 +129,7 @@ int main(void)
 	return 0;
 }
 
-__global__ void Re_lin_kernel(double *Re, double *Im, double dt)
+__global__ void Re_lin_kernel(float *Re, float *Im, float dt)
 {                  
    // setting up i j
    int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -144,7 +143,7 @@ __global__ void Re_lin_kernel(double *Re, double *Im, double dt)
 					- dt/(DY*DY)*(Im[ind(i,j+1)] - 2*Im[ind(i,j)] + Im[ind(i,j-1)]);
 }
 
-__global__ void Im_lin_kernel(double *Re, double *Im, double dt)
+__global__ void Im_lin_kernel(float *Re, float *Im, float dt)
 {                  
 	// setting up i j
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -158,7 +157,7 @@ __global__ void Im_lin_kernel(double *Re, double *Im, double dt)
 					+ dt/(DY*DY)*(Re[ind(i,j+1)] - 2*Re[ind(i,j)] + Re[ind(i,j-1)]);
 }
 
-__global__ void nonlin_kernel(double *Re, double *Im, double dt)
+__global__ void nonlin_kernel(float *Re, float *Im, float dt)
 {                  
 	// setting up i j
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -167,10 +166,9 @@ __global__ void nonlin_kernel(double *Re, double *Im, double dt)
 	// we're avoiding Boundary Elements (kept at initial value approx = 0);
     if(i == 0 || j == 0 || i >= XN-1 || j >= YN-1) return;
 
-	double Rp = Re[ind(i,j)]; double Ip = Im[ind(i,j)];
-	double A2 = Rp*Rp+Ip*Ip; // |psi|^2
+	float Rp = Re[ind(i,j)]; float Ip = Im[ind(i,j)];
+	float A2 = Rp*Rp+Ip*Ip; // |psi|^2
 	
 	Re[ind(i,j)] =	Rp*cos((A2-A2*A2)*dt) - Ip*sin((A2-A2*A2)*dt);
 	Im[ind(i,j)] =	Rp*sin((A2-A2*A2)*dt) + Ip*cos((A2-A2*A2)*dt);
 }
-

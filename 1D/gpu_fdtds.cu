@@ -1,5 +1,6 @@
 // nlse
 #include "../lib/cu_helpers.h"
+
 // given stuff
 #define XN	1000
 #define TN	100000
@@ -14,9 +15,9 @@
 #define A 1.0
 #define R 2.0
 
-__global__ void R_lin_kernel(double *Re, double *Im, double dt);
-__global__ void I_lin_kernel(double *Re, double *Im, double dt);
-__global__ void nonlin_kernel(double *Re, double *Im, double dt);
+__global__ void R_lin_kernel(float *Re, float *Im, float dt);
+__global__ void I_lin_kernel(float *Re, float *Im, float dt);
+__global__ void nonlin_kernel(float *Re, float *Im, float dt);
 
 int main(void)
 {
@@ -29,12 +30,12 @@ int main(void)
 	cudaEventCreate(&endEvent);
 	
 	// create the arrays x and t
-    double *h_x = (double*)malloc(sizeof(double) * XN);
+    float *h_x = (float*)malloc(sizeof(float) * XN);
     // create used arrays
-	double *h_Re 	= (double*)malloc(sizeof(double) * XN);
-    double *h_Im	= (double*)malloc(sizeof(double) * XN);   
-	double *h_Re_0 	= (double*)malloc(sizeof(double) * XN);
-    double *h_Im_0	= (double*)malloc(sizeof(double) * XN);   
+	float *h_Re 	= (float*)malloc(sizeof(float) * XN);
+    float *h_Im	= (float*)malloc(sizeof(float) * XN);   
+	float *h_Re_0 	= (float*)malloc(sizeof(float) * XN);
+    float *h_Im_0	= (float*)malloc(sizeof(float) * XN);   
 	// initial conditions.
 	for(int i = 0; i < XN ; i++)
 	{
@@ -47,11 +48,11 @@ int main(void)
 	}
     
     // allocate arrays on device and copy them
-	double *d_Re, *d_Im;
-	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(double) * XN));
-	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(double) * XN));
-	CUDAR_SAFE_CALL(cudaMemcpy(d_Re, h_Re, sizeof(double) * XN, cudaMemcpyHostToDevice));
-	CUDAR_SAFE_CALL(cudaMemcpy(d_Im, h_Im, sizeof(double) * XN, cudaMemcpyHostToDevice));
+	float *d_Re, *d_Im;
+	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(float) * XN));
+	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(float) * XN));
+	CUDAR_SAFE_CALL(cudaMemcpy(d_Re, h_Re, sizeof(float) * XN, cudaMemcpyHostToDevice));
+	CUDAR_SAFE_CALL(cudaMemcpy(d_Im, h_Im, sizeof(float) * XN, cudaMemcpyHostToDevice));
 
 	// initialize the grid
 	dim3 threadsPerBlock(128,1,1);
@@ -76,32 +77,29 @@ int main(void)
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 	}
 	cudaEventRecord(endEvent, 0);
-
     cudaEventSynchronize(endEvent);
- 
 	float timeValue;
 	cudaEventElapsedTime(&timeValue, beginEvent, endEvent);
- 
 	printf("%f\n", timeValue/1000.0);
 
-	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(double)*XN, 
+	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(float)*XN, 
 															cudaMemcpyDeviceToHost));
-	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(double)*XN, 
+	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(float)*XN, 
 															cudaMemcpyDeviceToHost));
-	m_plot_1d(h_Re_0, h_Im_0, h_Re, h_Im, L, XN, "gpu_fdtd.m");
+	m_plot_1df(h_Re_0, h_Im_0, h_Re, h_Im, L, XN, "gpu_fdtd.m");
 	// wrap up
 	free(h_Re); 
 	free(h_Im); 
 	free(h_Re_0); 
 	free(h_Im_0); 
 	free(h_x); 
-	cudaFree(d_Re); 
-	cudaFree(d_Im); 
+	CUDAR_SAFE_CALL(cudaFree(d_Re)); 
+	CUDAR_SAFE_CALL(cudaFree(d_Im)); 
 
 	return 0;
 }
 
-__global__ void R_lin_kernel(double *Re, double *Im, double dt)
+__global__ void R_lin_kernel(float *Re, float *Im, float dt)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
 	
@@ -110,7 +108,7 @@ __global__ void R_lin_kernel(double *Re, double *Im, double dt)
 	Re[i] = Re[i] - dt/(DX*DX)*(Im[i+1] - 2*Im[i] + Im[i-1]);
 }
 
-__global__ void I_lin_kernel(double *Re, double *Im, double dt)
+__global__ void I_lin_kernel(float *Re, float *Im, float dt)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
 	
@@ -119,11 +117,11 @@ __global__ void I_lin_kernel(double *Re, double *Im, double dt)
 	Im[i] = Im[i] + dt/(DX*DX)*(Re[i+1] - 2*Re[i] + Re[i-1]);
 }
 
-__global__ void nonlin_kernel(double *Re, double *Im, double dt)
+__global__ void nonlin_kernel(float *Re, float *Im, float dt)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
-	double Rp = Re[i]; double Ip = Im[i];
-	double A2 = Rp*Rp+Ip*Ip;
+	float Rp = Re[i]; float Ip = Im[i];
+	float A2 = Rp*Rp+Ip*Ip;
 	
 	if (i > XN - 1) return; 
 	

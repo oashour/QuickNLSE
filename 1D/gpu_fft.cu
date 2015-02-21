@@ -1,5 +1,5 @@
 /**********************************************************************************
-* Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation         *
+* Numerical Solution for the Cubic Nonlinear Schrodinger Equation        		  *
 * using second order split step Fourier method.                                   *
 * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
 **********************************************************************************/
@@ -15,55 +15,6 @@
 #define TT	100.0            		// Max time
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DT	(TT / TN)    			// temporal step size
-
-// Error checking Macros
-// Macro to catch cufft errors
-#define CUFFT_SAFE_CALL( call) do {                                            \
-    cufftResult err = call;                                                    \
-    if (err != CUFFT_SUCCESS) {                                                \
-        fprintf(stderr, "CUFFT error in file '%s' in line %i: %s.\n", 		   \
-                __FILE__, __LINE__, _cudaGetErrorEnum(err));            	   \
-        exit(EXIT_FAILURE);                                                    \
-    }                                                                          \
-} while (0)
-
-static const char *_cudaGetErrorEnum(cufftResult error)
-{
-    switch (error)
-    {
-        case CUFFT_SUCCESS:
-            return "CUFFT_SUCCESS";
-
-        case CUFFT_INVALID_PLAN:
-            return "CUFFT_INVALID_PLAN";
-
-        case CUFFT_ALLOC_FAILED:
-            return "CUFFT_ALLOC_FAILED";
-
-        case CUFFT_INVALID_TYPE:
-            return "CUFFT_INVALID_TYPE";
-
-        case CUFFT_INVALID_VALUE:
-            return "CUFFT_INVALID_VALUE";
-
-        case CUFFT_INTERNAL_ERROR:
-            return "CUFFT_INTERNAL_ERROR";
-
-        case CUFFT_EXEC_FAILED:
-            return "CUFFT_EXEC_FAILED";
-
-        case CUFFT_SETUP_FAILED:
-            return "CUFFT_SETUP_FAILED";
-
-        case CUFFT_INVALID_SIZE:
-            return "CUFFT_INVALID_SIZE";
-
-        case CUFFT_UNALIGNED_DATA:
-            return "CUFFT_UNALIGNED_DATA";
-    }
-
-    return "<unknown>";
-}
 
 // Function prototypes
 __global__ void nonlin(cufftDoubleComplex *psi, double dt);
@@ -109,10 +60,10 @@ int main(void)
 	
 	// Allocate and copy device memory
     cufftDoubleComplex *d_psi; double *d_k2;
-	cudaMalloc((void **)&d_psi, sizeof(cufftDoubleComplex)*XN);
-	cudaMalloc((void **)&d_k2, sizeof(double)*XN);
-    cudaMemcpy(d_psi, h_psi, sizeof(cufftDoubleComplex)*XN, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_k2, h_k2, sizeof(double)*XN, cudaMemcpyHostToDevice);
+	CUDAR_SAFE_CALL(cudaMalloc((void **)&d_psi, sizeof(cufftDoubleComplex)*XN));
+	CUDAR_SAFE_CALL(cudaMalloc((void **)&d_k2, sizeof(double)*XN));
+    CUDAR_SAFE_CALL(cudaMemcpy(d_psi, h_psi, sizeof(cufftDoubleComplex)*XN, cudaMemcpyHostToDevice));
+    CUDAR_SAFE_CALL(cudaMemcpy(d_k2, h_k2, sizeof(double)*XN, cudaMemcpyHostToDevice));
 	
 	// initialize the grid
 	dim3 threadsPerBlock(128,1,1);
@@ -124,35 +75,40 @@ int main(void)
     	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_FORWARD));
 		// linear calculation
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2);  
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// backward transform
     	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_INVERSE));
 		// normalize the transform
 		normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// nonlinear calculation
 		nonlin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, DT);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// forward transform
     	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_FORWARD));
 		// linear calculation
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2);  
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// backward transform
     	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_INVERSE));
 		// normalize the transform
 		normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 	}
 
-	cudaMemcpy(h_psi, d_psi, sizeof(cufftDoubleComplex)*XN, cudaMemcpyDeviceToHost);
+	CUDAR_SAFE_CALL(cudaMemcpy(h_psi, d_psi, sizeof(cufftDoubleComplex)*XN, cudaMemcpyDeviceToHost));
 	// plot results
 	cm_plot_1d(h_psi_0, h_psi, LX, XN, "plotting.m");
 
 	// garbage collection
-	cufftDestroy(plan);
+	CUFFT_SAFE_CALL(cufftDestroy(plan));
 	free(x);
 	free(h_k2);
 	free(kx);
     free(h_psi_0);
 	free(h_psi);
-	cudaFree(d_psi);
-	cudaFree(d_k2);
+	CUDAR_SAFE_CALL(cudaFree(d_psi));
+	CUDAR_SAFE_CALL(cudaFree(d_k2));
 	return 0;
 }
 

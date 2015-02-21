@@ -16,65 +16,16 @@
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DT	(TT / TN)    			// temporal step size
 
-// Error checking Macros
-// Macro to catch cufft errors
-#define CUFFT_SAFE_CALL( call) do {                                            \
-    cufftResult err = call;                                                    \
-    if (err != CUFFT_SUCCESS) {                                                \
-        fprintf(stderr, "CUFFT error in file '%s' in line %i: %s, %d.\n",	   \
-                __FILE__, __LINE__, _cudaGetErrorEnum(err), err);          	   \
-        exit(EXIT_FAILURE);                                                    \
-    }                                                                          \
-} while (0)
-
-static const char *_cudaGetErrorEnum(cufftResult error)
-{
-    switch (error)
-    {
-        case CUFFT_SUCCESS:
-            return "CUFFT_SUCCESS";
-
-        case CUFFT_INVALID_PLAN:
-            return "CUFFT_INVALID_PLAN";
-
-        case CUFFT_ALLOC_FAILED:
-            return "CUFFT_ALLOC_FAILED";
-
-        case CUFFT_INVALID_TYPE:
-            return "CUFFT_INVALID_TYPE";
-
-        case CUFFT_INVALID_VALUE:
-            return "CUFFT_INVALID_VALUE";
-
-        case CUFFT_INTERNAL_ERROR:
-            return "CUFFT_INTERNAL_ERROR";
-
-        case CUFFT_EXEC_FAILED:
-            return "CUFFT_EXEC_FAILED";
-
-        case CUFFT_SETUP_FAILED:
-            return "CUFFT_SETUP_FAILED";
-
-        case CUFFT_INVALID_SIZE:
-            return "CUFFT_INVALID_SIZE";
-
-        case CUFFT_UNALIGNED_DATA:
-            return "CUFFT_UNALIGNED_DATA";
-    }
-
-    return "<unknown>";
-}
-
 // Function prototypes
-__global__ void nonlin(cufftComplex *psi, double dt);
-__global__ void lin(cufftComplex *psi, double *k2, double dt);
+__global__ void nonlin(cufftComplex *psi, float dt);
+__global__ void lin(cufftComplex *psi, float *k2, float dt);
 __global__ void normalize(cufftComplex *psi, int size);
 
 int main(void)
 {                                                                          
 	// Allocate and initialize the arrays
-    double *x = (double*)malloc(sizeof(double) * XN);
-	double *h_k2 = (double*)malloc(sizeof(double) * XN);
+    float *x = (float*)malloc(sizeof(float) * XN);
+	float *h_k2 = (float*)malloc(sizeof(float) * XN);
 	cufftComplex *h_psi = (cufftComplex*)
 										malloc(sizeof(cufftComplex)*XN);
 	cufftComplex *h_psi_0 = (cufftComplex*)
@@ -85,8 +36,8 @@ int main(void)
     CUFFT_SAFE_CALL(cufftPlan1d(&plan, XN, CUFFT_C2C, 1));
 
     // X and Y wave numbers
-	double dkx = 2*M_PI/XN/DX;
-	double *kx = (double*)malloc(XN * sizeof(double));
+	float dkx = 2*M_PI/XN/DX;
+	float *kx = (float*)malloc(XN * sizeof(float));
 	for(int i = XN/2; i >= 0; i--) 
 		kx[XN/2 - i]=(XN/2 - i) * dkx;
 	for(int i = XN/2+1; i < XN; i++) 
@@ -108,11 +59,11 @@ int main(void)
 		}   
 	
 	// Allocate and copy device memory
-    cufftComplex *d_psi; double *d_k2;
+    cufftComplex *d_psi; float *d_k2;
 	cudaMalloc((void **)&d_psi, sizeof(cufftComplex)*XN);
-	cudaMalloc((void **)&d_k2, sizeof(double)*XN);
+	cudaMalloc((void **)&d_k2, sizeof(float)*XN);
     cudaMemcpy(d_psi, h_psi, sizeof(cufftComplex)*XN, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_k2, h_k2, sizeof(double)*XN, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_k2, h_k2, sizeof(float)*XN, cudaMemcpyHostToDevice);
 	
 	// initialize the grid
 	dim3 threadsPerBlock(128,1,1);
@@ -156,16 +107,16 @@ int main(void)
 	return 0;
 }
 
-__global__ void nonlin(cufftComplex *psi, double dt)
+__global__ void nonlin(cufftComplex *psi, float dt)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
     
-	double psi2 = cuCabsf(psi[i])*cuCabsf(psi[i]);
+	float psi2 = cuCabsf(psi[i])*cuCabsf(psi[i]);
     cufftComplex expo = make_cuComplex(cos(psi2*dt), sin(psi2*dt));
 	psi[i] = cuCmulf(psi[i], expo);
 }
 
-__global__ void lin(cufftComplex *psi, double *k2, double dt)
+__global__ void lin(cufftComplex *psi, float *k2, float dt)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
 	
