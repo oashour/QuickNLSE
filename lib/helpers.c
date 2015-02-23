@@ -58,20 +58,20 @@ void cm_plot_1d(complex double *f_0, complex double *f,
 
 	fprintf(matlab_file, "x = linspace(%f, %f, %d); \n\n", -l, l, xn);                                                                 
 
-	fprintf(matlab_file, "psi_0 = [");
+	fprintf(matlab_file, "f_0 = [");
 
 	for(int i = 0; i < xn; i++)	
 		fprintf(matlab_file, "%0.10f ", cabs(f_0[i]));
 	fprintf(matlab_file,"];\n\n");                                                                 
 
-	fprintf(matlab_file, "psi_f = [");
+	fprintf(matlab_file, "f_f = [");
 	for(int i = 0; i < xn; i++)	
 		fprintf(matlab_file, "%0.10f ", cabs(f[i]));
 	fprintf(matlab_file,"];\n\n");                                                                 
 	
 	fprintf(matlab_file, "plot(x, f_0, '-r', 'LineWidth', 1); grid on;\n"
 						 "hold on\n"
-						 "plot(x, f, '--b', 'LineWidth', 1);\n"
+						 "plot(x, f_f, '--b', 'LineWidth', 1);\n"
 						 "legend('Initial', 'Final', 0);\n"
 						 "title('Initial and Final Pulse');\n"
 						 "xlabel('x values'); ylabel('|f|');");

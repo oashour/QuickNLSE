@@ -4,6 +4,8 @@
 #include <complex.h>
 #include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <stddef.h>
 /********************************************************************************
 * Function Name: 	m_plot_1d												*
 * Description:		This takes in a 1D complex function divided into real and	*
@@ -17,7 +19,7 @@
 *					--> xn: number of x nodes									*
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
-void matlab_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im, double l, int xn, 
+void m_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im, double l, int xn, 
 					char *filename);
 
 /********************************************************************************

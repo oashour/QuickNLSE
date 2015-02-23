@@ -28,7 +28,7 @@
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
 
 // Index linearization
-#define ind(i,j)  (i*XN+j)			// [i  ,j  ] 
+#define ind(i,j)  ((i)*XN+(j))			// [i  ,j  ] 
 
 // Function prototypes
 void nonlin(fftw_complex *psi, double dt);
