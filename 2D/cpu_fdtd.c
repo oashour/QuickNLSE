@@ -1,98 +1,88 @@
  // Cubic Quintic Nonlinear Schrodinger Equation
-#include<stdio.h>
-#include<math.h>
-#include<stdlib.h>
+#include "../lib/helpers.h"
 
-// given parameters for FDTD                                              XNODES
-#define XNODES	256			// number of X nodes                       _____________
-#define YNODES	256			// number of Y nodes                    Y |_|_|_|_|_|_|_|H
-#define TNODES	10000		// number of temporal nodes             N |_|_|_|_|_|_|_|E
-#define LX		50.0		// maximum X                            O |_|_|_|_|_|_|_|I
-#define LY		50.0		// maximum Y                            D |_|_|_|_|_|_|_|G
-#define TMAX	100.0  		// maximum t                            E |_|_|_|_|_|_|_|H
-//                                                                  S |_|_|_|_|_|_|_|T
-// Gaussian Parameters                                                     WIDTH
-#define  A_s 	(3.0/sqrt(8.0))
-#define  Rad_s 	(sqrt(32.0/9.0))
+// given parameters for FDTD                                              XN
+#define XN	64			// number of X nodes                       _____________
+#define YN	64			// number of Y nodes                    Y |_|_|_|_|_|_|_|H
+#define TN	100			// number of temporal nodes             N |_|_|_|_|_|_|_|E
+#define LX	50.0		// maximum X                            O |_|_|_|_|_|_|_|Im
+#define LY	50.0		// maximum Y                            D |_|_|_|_|_|_|_|G
+#define TT	10.0  		// maximum t                            E |_|_|_|_|_|_|_|H
+//                                                              S |_|_|_|_|_|_|_|T
+// Gaussian Parameters                                                 WIDTH
+#define  A_S 	(3.0/sqrt(8.0))
+#define  R_s 	(sqrt(32.0/9.0))
 #define  A 		0.6
-#define  Rad 	(1.0/(A*sqrt(1.0-A*A)))
+#define  R 	(1.0/(A*sqrt(1.0-A*A)))
 
 // calculated from given
-#define DELTAX	(LX / (XNODES - 1.0))
-#define DELTAY	(LY / (YNODES - 1.0))
-#define DELTAT	(TMAX / (TNODES - 1.0))
+#define DX	(2*LX / XN)
+#define DY	(2*LY / YN)
+#define DT	(TT / TN)
 
-// Index linearization for kernels [x,y] = [x * width + y] 
-#define INDEX_C  i    * XNODES +  j		//[i  ,j  ] 
-#define INDEX_1 (i+1) * XNODES +  j		//[i+1,j  ]
-#define INDEX_2 (i-1) * XNODES +  j		//[i-1,j  ]
-#define INDEX_3  i    * XNODES + (j+1)	//[i  ,j+1]
-#define INDEX_4  i    * XNODES + (j-1)	//[i  ,j-1]
+// Imndex linearization for kernels [x,y] = [x * width + y] 
+#define ind(i,j)  ((i)*XN+(j))		//[i  ,j  ] 
 
 // Function prototypes 
-void R_lin(double *R, double *I, double dt);
-void I_lin(double *R, double *I, double dt);
-void nonlin(double *R, double *I, double dt);
-void checker(double *R, double *I, double *max, int step);
-int max_index(double arr[], int size);
-void matlab_gen(double *R_0, double *I_0, double *R, double *I, double *max);
+void Re_lin(double *Re, double *Im, double dt);
+void Im_lin(double *Re, double *Im, double dt);
+void nonlin(double *Re, double *Im, double dt);
 
 int main(void)
 {
-    printf("DELTAX: %f, DELTAT: %f, dt/dx^2: %f\n", DELTAX, DELTAT, DELTAT/(DELTAX*DELTAX));
+    printf("DX: %f, DT: %f, dt/dx^2: %f\n", DX, DT, DT/(DX*DX));
 	
-    // Allocate x, y, R and I on host. Max will be use to store max |psi|
-	// R_0 and I_0 will keep a copy of initial pulse for printing
-	double *x = (double*)malloc(sizeof(double) * XNODES);
-	double *y = (double*)malloc(sizeof(double) * YNODES);
-	double *max = (double*)malloc(sizeof(double) * TNODES);
-	double *R = (double*)malloc(sizeof(double) * XNODES * YNODES);
-    double *I = (double*)malloc(sizeof(double) * XNODES * YNODES);   
-	double *R_0 = (double*)malloc(sizeof(double) * XNODES * YNODES);
-    double *I_0 = (double*)malloc(sizeof(double) * XNODES * YNODES);   
+    // Allocate x, y, Re and Im on host. Max will be use to store max |psi|
+	// Re_0 and Im_0 will keep a copy of initial pulse for printing
+	double *x = (double*)malloc(sizeof(double) * XN);
+	double *y = (double*)malloc(sizeof(double) * YN);
+	double *max = (double*)malloc(sizeof(double) * TN);
+	double *Re = (double*)malloc(sizeof(double) * XN * YN);
+    double *Im = (double*)malloc(sizeof(double) * XN * YN);   
+	double *Re_0 = (double*)malloc(sizeof(double) * XN * YN);
+    double *Im_0 = (double*)malloc(sizeof(double) * XN * YN);   
 	
 	// initialize x and y.
-	for(int i = 0; i < XNODES ; i++)
-		x[i] = (i-XNODES/2)*DELTAX;
+	for(int i = 0; i < XN ; i++)
+		x[i] = (i-XN/2)*DX;
 		
-    for(int i = 0; i < YNODES ; i++)
-		y[i] = (i-YNODES/2)*DELTAY;
+    for(int i = 0; i < YN ; i++)
+		y[i] = (i-YN/2)*DY;
 
     // Initial Conditions
-    for(int j = 0; j < YNODES; j++)
-		for(int i = 0; i < XNODES; i++)
+    for(int j = 0; j < YN; j++)
+		for(int i = 0; i < XN; i++)
 			{
-				R[INDEX_C] = A_s*A*exp(-(x[i]*x[i]+y[j]*y[j])/(2*Rad*Rad*Rad_s*Rad_s)); 
-				I[INDEX_C] = 0;
-				R_0[INDEX_C] = R[INDEX_C];
-				I_0[INDEX_C] = I[INDEX_C];
+				Re[ind(i,j)] = A_S*A*exp(-(x[i]*x[i]+y[j]*y[j])/(2*R*R*R_s*R_s)); 
+				Im[ind(i,j)] = 0;
+				Re_0[ind(i,j)] = Re[ind(i,j)];
+				Im_0[ind(i,j)] = Im[ind(i,j)];
 			}
 	
 	// print max |psi| for initial conditions
-	checker(R, I, max, 0);
+	max_psi(Re, Im, max, 0, XN*YN);
 	// Begin timing
-	for (int i = 1; i < TNODES; i++)
+	for (int i = 1; i < TN; i++)
 	{
 		// linear
-		R_lin(R, I, DELTAT*0.5);
-        I_lin(R, I, DELTAT*0.5);
+		Re_lin(Re, Im, DT*0.5);
+        Im_lin(Re, Im, DT*0.5);
 		// nonlinear
-		nonlin(R, I, DELTAT);
+		nonlin(Re, Im, DT);
 		// linear
-		R_lin(R, I, DELTAT*0.5);
-        I_lin(R, I, DELTAT*0.5);
+		Re_lin(Re, Im, DT*0.5);
+        Im_lin(Re, Im, DT*0.5);
 		// find max psi
-		checker(R, I, max, i);
+		max_psi(Re, Im, max, i, XN*YN);
 	}
 
 	// Generate MATLAB file to plot max |psi| and the initial and final pulses
-	matlab_gen(R_0, I_0, R, I, max);
-
+	m_plot_2d(Re_0, Im_0, Re, Im, max, LX, LY, XN, YN, TN, "cpu_new.m");
 	// wrap up                                                  
-	free(R); 
-	free(I); 
-	free(R_0); 
-	free(I_0); 
+	free(Re); 
+	free(Im); 
+	free(Re_0); 
+	free(Im_0); 
 	free(x); 
 	free(y);
 	free(max);
@@ -100,112 +90,38 @@ int main(void)
 	return 0;
 }
 
-void R_lin(double *R, double *I, double dt)
+void Re_lin(double *Re, double *Im, double dt)
 {                  
 	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int j = 1; j < YNODES - 1; j++)
-		for(int i = 1; i < XNODES - 1; i++)
-			R[INDEX_C] = R[INDEX_C] - dt/(DELTAX*DELTAX)*(I[INDEX_1] - 2*I[INDEX_C] + I[INDEX_2])
-									- dt/(DELTAY*DELTAY)*(I[INDEX_3] - 2*I[INDEX_C] + I[INDEX_4]);
+    for(int j = 1; j < YN - 1; j++)
+		for(int i = 1; i < XN - 1; i++)
+			Re[ind(i,j)] = Re[ind(i,j)] 
+						   - dt/(DX*DX)*(Im[ind(i+1,j)] - 2*Im[ind(i,j)] + Im[ind(i-1,j)])
+						   - dt/(DY*DY)*(Im[ind(i,j+1)] - 2*Im[ind(i,j)] + Im[ind(i,j-1)]);
 }
 
-void I_lin(double *R, double *I, double dt)
+void Im_lin(double *Re, double *Im, double dt)
 {                  
 	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int j = 1; j < YNODES - 1; j++)
-		for(int i = 1; i < XNODES - 1; i++)
-			I[INDEX_C] = I[INDEX_C] + dt/(DELTAX*DELTAX)*(R[INDEX_1] - 2*R[INDEX_C] + R[INDEX_2])
-									+ dt/(DELTAY*DELTAY)*(R[INDEX_3] - 2*R[INDEX_C] + R[INDEX_4]);
+    for(int j = 1; j < YN - 1; j++)
+		for(int i = 1; i < XN - 1; i++)
+			Im[ind(i,j)] = Im[ind(i,j)] 
+						   + dt/(DX*DX)*(Re[ind(i+1,j)] - 2*Re[ind(i,j)] + Re[ind(i-1,j)])
+						   + dt/(DY*DY)*(Re[ind(i,j+1)] - 2*Re[ind(i,j)] + Re[ind(i,j-1)]);
 }
 
-void nonlin(double *R, double *I, double dt)
+void nonlin(double *Re, double *Im, double dt)
 {                  
 	double Rp, Ip, A2;
 	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-	for(int j = 1; j < YNODES-1; j++)
-		for(int i = 1; i < XNODES-1; i++)
+	for(int j = 1; j < YN-1; j++)
+		for(int i = 1; i < XN-1; i++)
 		{
-			Rp = R[INDEX_C];  Ip = I[INDEX_C];
+			Rp = Re[ind(i,j)];  Ip = Im[ind(i,j)];
 			A2 = Rp*Rp+Ip*Ip; // |psi|^2
 			
-			R[INDEX_C] = Rp*cos((A2-A2*A2)*dt) - Ip*sin((A2-A2*A2)*dt);
-			I[INDEX_C] = Rp*sin((A2-A2*A2)*dt) + Ip*cos((A2-A2*A2)*dt);
+			Re[ind(i,j)] = Rp*cos((A2-A2*A2)*dt) - Ip*sin((A2-A2*A2)*dt);
+			Im[ind(i,j)] = Rp*sin((A2-A2*A2)*dt) + Ip*cos((A2-A2*A2)*dt);
 		}
-}
-
-void checker(double *R, double *I, double *max, int step)
-{
-	double *Arr = (double*)malloc(sizeof(double) * XNODES * YNODES);
-    
-	for(int i = 0; i < XNODES * YNODES; i++)
-		Arr[i] = sqrt(R[i] * R[i] + I[i] * I[i]);
-
-    int index = max_index(Arr, XNODES*YNODES);
-
-	max[step] = Arr[index];
-
-	free(Arr);
-}
-
-int max_index(double arr[], int size)
-{
-	int largestIndex = 0;
-
-	for (int index = largestIndex; index < size; index++) 
-	{
-		if (arr[largestIndex] <= arr[index])
-            largestIndex = index;
-    }
-
-    return largestIndex;
-}
-
-void matlab_gen(double *R_0, double *I_0, double *R, double *I, double *max)
-{
-    FILE *matlab_file = fopen("cpu_2dpsi.m", "w");
-
-	// Initialize Arrays
-	fprintf(matlab_file, "[x,y] = meshgrid(linspace(%f,%f,%d), linspace(%f, %f, %d));\n", -LX, LX, XNODES, -LY, LY, YNODES);
-	fprintf(matlab_file, "steps = [0:%d-1];\n\n", TNODES);
-
-	// Generate the array for max |psi|
-    fprintf(matlab_file, "max = [");
-	for(int i = 0; i < TNODES; i++)
-		fprintf(matlab_file, "%0.10f ", max[i]);
-	fprintf(matlab_file, "];\n\n");
-	
-	// generate initial pulse matrix
-	fprintf(matlab_file, "psi_0 = [");
-	for(int i = 0; i < XNODES*YNODES; i++)	
-		fprintf(matlab_file, "%0.10f ", sqrt(R_0[i] * R_0[i] + I_0[i] * I_0[i]));
-	fprintf(matlab_file,"];\n");                                                                 
-    fprintf(matlab_file,"psi_0 = vec2mat(psi_0,%d);\n\n", XNODES);
-
-	// Generate final pulse matrix
-	fprintf(matlab_file, "psi_f = [");
-	for(int i = 0; i < XNODES*YNODES; i++)	
-		fprintf(matlab_file, "%0.10f ", sqrt(R[i] * R[i] + I[i] * I[i]));
-	fprintf(matlab_file,"];\n");                                                                 
-    fprintf(matlab_file,"psi_f = vec2mat(psi_f,%d);\n\n", XNODES);
-	
-	// plot max |psi| versus time step
-	fprintf(matlab_file, "plot(steps, max, '-r', 'LineWidth', 1); grid on;\n"
-						 "title('Maximum Value of |psi| per time step, from t = 0 to t = %f');\n"
-						 "xlabel('Time Step'); ylabel('max |psi|');\n\n", TMAX);
-
-	// generate initial pulse figure
-	fprintf(matlab_file, "figure;\n"
-						 "surf(x,y,psi_0);\n"
-						 "title('Initial Pulse = 0');\n"
-						 "xlabel('x'); ylabel('y'); zlabel('|psi|');\n\n");
-
-	// generate final pulse figure
-	fprintf(matlab_file, "figure;\n"
-						 "surf(x,y,psi_f);\n"
-						 "title('Final Pulse at t = %f');\n"
-						 "xlabel('x'); ylabel('y'); zlabel('|psi|');\n\n", TMAX);
-
-	fclose(matlab_file);
-	
 }
 
