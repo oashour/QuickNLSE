@@ -72,10 +72,11 @@ int main(int argc, char **argv)
 		psi[i] = psi_0[i+local_i_start];  
 	}
     
+	// forward transform
+	fftw_execute(forward);
+	
 	for (int i = 1; i < TN; i++)
 	{
-		// forward transform
-		fftw_execute(forward);
 		// linear
 		lin(psi, k2, DT/2, local_ni);  
 		// backward tranform
@@ -88,11 +89,13 @@ int main(int argc, char **argv)
 		fftw_execute(forward);
 		// linear
 		lin(psi, k2, DT/2, local_ni);
-		// backward tranform
-		fftw_execute(backward);
-		// scale down
-		normalize(psi, XN, local_ni);
 	}
+	
+	// backward tranform
+	fftw_execute(backward);
+	// scale down
+	normalize(psi, XN, local_ni);
+	
 	//printf("time elapsed: %f s.\n", elapsed);
 
     MPI_Gather(psi, local_ni, MPI_C_DOUBLE_COMPLEX, psi_new, 

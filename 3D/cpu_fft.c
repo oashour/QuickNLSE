@@ -119,13 +119,13 @@ int main(void)
 	// Find max(|psi|) for initial pulse.
 	double *max = (double*)malloc(sizeof(double) * TN);
 	cmax_psi(psi, max, 0, XN*YN*ZN);
+	// forward transform
+	fftw_execute(forward);
     // Start time evolution and start performance timing
 	gettimeofday(&tp, NULL);
 	t1=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
 	for (int i = 1; i < TN; i++)
 	{
-		// forward transform
-		fftw_execute(forward);
 		// linear calculation
 		lin(psi, k2, DT/2);  
 		// backward transform
@@ -138,10 +138,6 @@ int main(void)
 		fftw_execute(forward);
 		// linear calculation
 		lin(psi, k2, DT/2);
-		// backward tranform
-		fftw_execute(backward);
-		// normalize the transform
-		normalize(psi, XN*YN*ZN);
 		// find maximum |psi|
 		cmax_psi(psi, max, i, XN*YN*ZN);
 	}
@@ -151,9 +147,24 @@ int main(void)
 	t2=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
 	elapsed=t2-t1;
 	printf("Tine elsapsed: %f\n", elapsed);
+	// backward tranform
+	fftw_execute(backward);
+	// normalize the transform
+	normalize(psi, XN*YN*ZN);
 
+	double *psi2 = (double*)malloc(sizeof(double)*XN*YN*ZN);
+    double *psi2_0 = (double*)malloc(sizeof(double)*XN*YN*ZN);
+	
+	for(int k = 0; k < ZN; k++)
+		for(int j = 0; j < YN; j++)
+	   		for(int i = 0; i < XN; i++)
+			{
+				psi2[ind(i,j,k)] = cabs(psi[ind(i,j,k)]);
+				psi2_0[ind(i,j,k)] = cabs(psi_0[ind(i,j,k)]);
+            }
 	// plot results
-	//cm_plot_2d(psi_0, psi, max, LX, LY, XN, YN, TN, "plotting.m");
+ 	vtk_3d(x, y, z, psi2, XN, YN, ZN, "test_fft1.vtk");
+	vtk_3d(x, y, z, psi2_0, XN, YN, ZN, "test_fft0.vtk");
 
 	// garbage collection
 	fftw_destroy_plan(forward);

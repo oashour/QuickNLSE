@@ -1,13 +1,14 @@
 /**********************************************************************************
-* Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1)D	  	  *
-* using explicit FDTD with second order splitting.                                *
-* Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
-* ********************************************************************************/
+ * Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1)D	  *
+ * using explicit FDTD with second order splitting.                               *
+ * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+ * ********************************************************************************/
+
 #include "../lib/helpers.h"
 #include "../lib/timers.h"
 
 // Grid Parameters
-#define XN	1024				// number of spatial ndes
+#define XN	nodes				// number of spatial ndes
 #define TN	100000				// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
@@ -21,8 +22,10 @@ void nonlin(double *Re, double *Im, double dt, int xn);
 
 int main(int argc, char *argv[])
 {
-    // Print basic info about simulation
+	// Timing starts here
 	double t1 = get_cpu_time();
+    // Print basic info about simulation
+	const int nodes = atoi(argv[1]);
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 
 	// Allocate and initialize the arrays
@@ -40,35 +43,30 @@ int main(int argc, char *argv[])
 		Re_0[i] = Re[i];
 		Im_0[i] = Im[i];
 	}
-	
-	// Print timing info to file
-	FILE *fp = fopen("test_1.m", "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
-	fprintf(fp, "time = [0, ");
-	
+    
 	// Start time evolution
 	for (int i = 1; i < TN; i++)
 	{
-		// Solve linear part
+		// Linear
 		Re_lin(Re, Im, DT*0.5, XN, DX);
         Im_lin(Re, Im, DT*0.5, XN, DX);
-		// Solve nonlinear part
+		// Nonlinear
 		nonlin(Re, Im, DT, XN);
-		// Solve linear part
+		// Linear
 		Re_lin(Re, Im, DT*0.5, XN, DX);
         Im_lin(Re, Im, DT*0.5, XN, DX);
-		// Print time at specific intervals
-		if(i % 100 == 0)
-			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
-	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time, '-*r');\n");
-	fclose(fp);
+	double t2 = get_cpu_time();
 	
+	// Print timing
+	FILE *fp = fopen(argv[2], "a");
+	fprintf(fp, "%f, ", t2-t1);
+	fclose(fp);
+
 	// Plot results
 	m_plot_1d(Re_0, Im_0, Re, Im, L, XN, "cpu_fdtd.m");
 
-	// Clean up
+	// Free memory
 	free(Re); 
 	free(Im); 
 	free(Re_0); 
@@ -94,13 +92,12 @@ void Im_lin(double *Re, double *Im, double dt, int xn, double dx)
 
 void nonlin(double *Re, double *Im, double dt, int xn)
 {                  
-	double Rp, Ip, A2;
 	// Avoid first and last point (boundary conditions)
 	for(int i = 1; i < xn-1; i++)
 	{
-		Rp = Re[i]; 
-		Ip = Im[i];
-		A2 = Rp*Rp+Ip*Ip;
+		double Rp = Re[i]; 
+		double Ip = Im[i];
+		double A2 = Rp*Rp+Ip*Ip;
 	
 		Re[i] =	Rp*cos(A2*dt) - Ip*sin(A2*dt);
    		Im[i] =	Rp*sin(A2*dt) + Ip*cos(A2*dt);

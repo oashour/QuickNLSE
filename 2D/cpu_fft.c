@@ -16,7 +16,7 @@
 #define TN	1000					// Number of temporal nodes
 #define LX	50.0					// x-spatial domain [-LX,LX)
 #define LY	50.0					// y-spatial domain [-LY,LY)
-#define TT	100.0            		// Max time
+#define TT	10.0            		// Max time
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DY	(2*LY / YN)				// y-spatial step size
 #define DT	(TT / TN)    			// temporal step size
@@ -86,15 +86,16 @@ int main(void)
 				k2[ind(i,j)] = kx[i]*kx[i] + ky[j]*ky[j];
 			}   
 	
-	// Find max(|psi|) for initial pulse.
-	cmax_psi(psi, max, 0, XN*YN);
     // Start time evolution and start performance timing
 	gettimeofday(&tp, NULL);
 	t1=(double)tp.tv_sec+(1.e-6)*tp.tv_usec;
+	
+	// forward transform
+	fftw_execute(forward);
+	// Find max(|psi|) for initial pulse.
+	cmax_psi(psi, max, 0, XN*YN);
 	for (int i = 1; i < TN; i++)
 	{
-		// forward transform
-		fftw_execute(forward);
 		// linear calculation
 		lin(psi, k2, DT/2);  
 		// backward transform
@@ -107,13 +108,13 @@ int main(void)
 		fftw_execute(forward);
 		// linear calculation
 		lin(psi, k2, DT/2);
-		// backward tranform
-		fftw_execute(backward);
-		// normalize the transform
-		normalize(psi, XN*YN);
 		// find maximum |psi|
 		cmax_psi(psi, max, i, XN*YN);
 	}
+	// backward tranform
+	fftw_execute(backward);
+	// normalize the transform
+	normalize(psi, XN*YN);
 	
 	// End of time evolution and end and print performance timing
 	gettimeofday(&tp, NULL);

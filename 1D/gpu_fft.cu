@@ -69,10 +69,11 @@ int main(void)
 	dim3 threadsPerBlock(128,1,1);
 	dim3 blocksPerGrid((XN + 127)/128,1,1);
 
+	// forward transform
+	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_FORWARD));
+	
 	for (int i = 1; i < TN; i++)
 	{
-		// forward transform
-    	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_FORWARD));
 		// linear calculation
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2);  
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
@@ -89,13 +90,14 @@ int main(void)
 		// linear calculation
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2);  
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-		// backward transform
-    	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_INVERSE));
-		// normalize the transform
-		normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN);
-		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 	}
 
+	// backward transform
+	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_INVERSE));
+	// normalize the transform
+	normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN);
+	CUDAR_SAFE_CALL(cudaPeekAtLastError());
+	
 	CUDAR_SAFE_CALL(cudaMemcpy(h_psi, d_psi, sizeof(cufftDoubleComplex)*XN, cudaMemcpyDeviceToHost));
 	// plot results
 	cm_plot_1d(h_psi_0, h_psi, LX, XN, "plotting.m");

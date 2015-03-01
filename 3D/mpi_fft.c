@@ -136,10 +136,10 @@ int main(int argc, char **argv)
 			}
 
  	MPI_Barrier(MPI_COMM_WORLD);   
+	// forward transform
+	fftw_execute(forward);
 	for (int i = 1; i < TN; i++)
 	{
-		// forward transform
-		fftw_execute(forward);
 		// linear
 		lin(psi, k2, DT/2, local_ni);  
 		// backward tranform
@@ -152,11 +152,11 @@ int main(int argc, char **argv)
 		fftw_execute(forward);
 		// linear
 		lin(psi, k2, DT/2, local_ni);
-		// backward tranform
-		fftw_execute(backward);
-		// scale down
-		normalize(psi, XN*YN*ZN, local_ni);
 	}
+	// backward tranform
+	fftw_execute(backward);
+	// scale down
+	normalize(psi, XN*YN*ZN, local_ni);
 	//printf("time elapsed: %f s.\n", elapsed);
     MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gather(psi, local_ni*YN*ZN, MPI_C_DOUBLE_COMPLEX, psi_new, 

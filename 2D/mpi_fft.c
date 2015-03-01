@@ -101,10 +101,10 @@ int main(int argc, char **argv)
 			k2[ind(i,j)] = kx[i+local_i_start]*kx[i+local_i_start] + ky[j]*ky[j];
 		}   
  	MPI_Barrier(MPI_COMM_WORLD);   
+	// forward transform
+	fftw_execute(forward);
 	for (int i = 1; i < TN; i++)
 	{
-		// forward transform
-		fftw_execute(forward);
 		// linear
 		lin(psi, k2, DT/2, local_ni);  
 		// backward tranform
@@ -117,18 +117,18 @@ int main(int argc, char **argv)
 		fftw_execute(forward);
 		// linear
 		lin(psi, k2, DT/2, local_ni);
-		// backward tranform
-		fftw_execute(backward);
-		// scale down
-		normalize(psi, XN*YN, local_ni);
 	}
+	// backward tranform
+	fftw_execute(backward);
+	// scale down
+	normalize(psi, XN*YN, local_ni);
 	//printf("time elapsed: %f s.\n", elapsed);
     MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gather(psi, local_ni*YN, MPI_C_DOUBLE_COMPLEX, psi_new, 
 	    					local_ni*YN, MPI_C_DOUBLE_COMPLEX, ROOT, MPI_COMM_WORLD);
 
 	if(rank == ROOT)
-		cm_plot_2d(psi_0, psi_new, max, LX, LY, XN, YN, TN, "mpi_2d_plotting.m");
+		cm_plot_2d(psi_0, psi_new, max, LX, LY, XN, YN, TN, "mpi.m");
 	
 	fftw_destroy_plan(forward);
 	fftw_destroy_plan(backward);

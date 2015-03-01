@@ -4,8 +4,8 @@
 // given stuff
 #define XN	1000
 #define TN	100000
-#define L	10.0
-#define TT	10.0
+#define L	10.0f
+#define TT	10.0f
 
 // calculated from given
 #define DX	(2*L / XN)

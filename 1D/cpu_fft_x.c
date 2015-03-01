@@ -27,10 +27,11 @@ int main(int argc, char *argv[])
 	// Timing starts here
 	double t1 = get_cpu_time();
 	// Print basic info about simulation
+	const int nodes = atoi(argv[1]);
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 
-	// Allocate the arrays
-    double *x = (double*)malloc(sizeof(double) * XN);
+    // Allocate the arrays
+	double *x = (double*)malloc(sizeof(double) * XN);
     double *k2 = (double*)malloc(sizeof(double) * XN);
 	fftw_complex *psi = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * XN);
 	fftw_complex *psi_0 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * XN);
@@ -40,7 +41,7 @@ int main(int argc, char *argv[])
 	forward = fftw_plan_dft_1d(XN, psi, psi, FFTW_FORWARD, FFTW_ESTIMATE);
 	backward = fftw_plan_dft_1d(XN, psi, psi, FFTW_BACKWARD, FFTW_ESTIMATE);
 
-    // Create wave number
+	// Create wave number
 	double dkx=2*M_PI/XN/DX;
 	double *kx;
 	kx=(double*)malloc(XN*sizeof(double));
@@ -60,20 +61,16 @@ int main(int argc, char *argv[])
 	}
     
 	// Forward transform
-	fftw_execute(forward);
-	// Print timing info to file
-	FILE *fp = fopen("test_1.m", "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
-	fprintf(fp, "time = [0, ");
-	
+	fftw_execute(forward); 
+
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
 		lin(psi, k2, DT/2, XN);  
-		// Backward tranform
+		// Backward transform
 		fftw_execute(backward);
-		// Normalize the transform
+		// Normalize
 		normalize(psi, XN);
 		// Solve nonlinear part
 		nonlin(psi, DT, XN);
@@ -81,12 +78,10 @@ int main(int argc, char *argv[])
 		fftw_execute(forward);
 		// Solve linear part
 		lin(psi, k2, DT/2, XN);
-		// Print time at specific intervals
-		if(i % 100 == 0)
-			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
-	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time, '-*r');\n");
+	// Print time to file
+	FILE *fp = fopen(argv[2], "a");
+	fprintf(fp, "%f, ", get_cpu_time()-t1);
 	fclose(fp);
 	
 	// Backward tranform to retreive data
@@ -95,7 +90,7 @@ int main(int argc, char *argv[])
 	normalize(psi, XN);
 	
 	// Plot results
-	cm_plot_1d(psi_0, psi, L, XN, "cpu_fft.m");
+	cm_plot_1d(psi_0, psi, L, XN, "cpufft_new.m");
 
 	// Clean up
 	fftw_destroy_plan(forward);
