@@ -3,13 +3,11 @@
 * using second order split step Fourier method.                                   *
 * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
 **********************************************************************************/
-#include <sys/time.h>
-#include <stddef.h>
 #include "../lib/cu_helpers.h"
 #include <cufft.h>
 
 // Grid Parameters
-#define XN	2048					// Number of x-spatial nodes
+#define XN	2048					// Number of Fourier modes
 #define TN	10000					// Number of temporal nodes
 #define LX	10.0					// x-spatial domain [-LX,LX)
 #define TT	10.0            		// Max time
@@ -17,118 +15,146 @@
 #define DT	(TT / TN)    			// temporal step size
 
 // Function prototypes
-__global__ void nonlin(cufftComplex *psi, float dt);
-__global__ void lin(cufftComplex *psi, float *k2, float dt);
+__global__ void nonlin(cufftComplex *psi, float dt, int xn);
+__global__ void lin(cufftComplex *psi, float *k2, float dt, int xn);
 __global__ void normalize(cufftComplex *psi, int size);
 
 int main(void)
 {                                                                          
-	// Allocate and initialize the arrays
-    float *x = (float*)malloc(sizeof(float) * XN);
+    // Timing info
+	cudaEvent_t begin_event, end_event;
+	cudaEventCreate(&begin_event);
+	cudaEventCreate(&end_event);
+    
+	// Timing starts here
+	cudaEventRecord(beginEvent, 0);
+	
+	// Print basic info about simulation
+	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
+	
+	// Allocate host arrays
+    float *h_x = (float*)malloc(sizeof(float) * XN);
 	float *h_k2 = (float*)malloc(sizeof(float) * XN);
-	cufftComplex *h_psi = (cufftComplex*)
-										malloc(sizeof(cufftComplex)*XN);
-	cufftComplex *h_psi_0 = (cufftComplex*)
-										malloc(sizeof(cufftComplex)*XN);
+	float *h_kx = (float*)malloc(XN * sizeof(float));
+	cufftComplex *h_psi = (cufftComplex*)malloc(sizeof(cufftComplex)*XN);
+	cufftComplex *h_psi_0 = (cufftComplex*)malloc(sizeof(cufftComplex)*XN);
 	
 	// Create transform plans
     cufftHandle plan;
     CUFFT_SAFE_CALL(cufftPlan1d(&plan, XN, CUFFT_C2C, 1));
 
-    // X and Y wave numbers
+    // Create wave number
 	float dkx = 2*M_PI/XN/DX;
-	float *kx = (float*)malloc(XN * sizeof(float));
 	for(int i = XN/2; i >= 0; i--) 
-		kx[XN/2 - i]=(XN/2 - i) * dkx;
+		h_kx[XN/2 - i]=(XN/2 - i) * dkx;
 	for(int i = XN/2+1; i < XN; i++) 
-		kx[i]=(i - XN) * dkx; 
+		h_kx[i]=(i - XN) * dkx; 
 
-	// initialize x.
-	for(int i = 0; i < XN ; i++)
-		x[i] = (i-XN/2)*DX;
-	
-	// Initial Conditions and square of wave number
+	// Initial Conditions on host
 	for(int i = 0; i < XN; i++)
 		{
-			h_psi[i].x = sqrt(2)/cosh(x[i]);
+			h_x[i] = (i-XN/2)*DX;
+			h_psi[i].x = sqrt(2)/cosh(h_x[i]);
 			//h_psi[i].x = 2*exp(-(x[i]*x[i]/2.0/2.0));
 			h_psi[i].y = 0;
 			h_psi_0[i].x = h_psi[i].x;
 			h_psi_0[i].y = h_psi[i].y;
-			h_k2[i] = kx[i]*kx[i];
+			h_k2[i] = h_kx[i]*h_kx[i];
 		}   
 	
-	// Allocate and copy device memory
+	// Allocate device arrays and copy from host
     cufftComplex *d_psi; float *d_k2;
 	cudaMalloc((void **)&d_psi, sizeof(cufftComplex)*XN);
 	cudaMalloc((void **)&d_k2, sizeof(float)*XN);
     cudaMemcpy(d_psi, h_psi, sizeof(cufftComplex)*XN, cudaMemcpyHostToDevice);
     cudaMemcpy(d_k2, h_k2, sizeof(float)*XN, cudaMemcpyHostToDevice);
 	
-	// initialize the grid
+	// Initialize the grid
 	dim3 threadsPerBlock(128,1,1);
 	dim3 blocksPerGrid((XN + 127)/128,1,1);
 
-	// forward transform
+	// Print timing info to file
+	float time_value;
+	FILE *fp = fopen("test_1.m", "w");
+	fprintf(fp, "steps = [0:100:%d];\n", TN);
+	fprintf(fp, "time = [0, ");
+	
+	// Forward transform
 	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_FORWARD));
 	
-	for (int i = 1; i < TN; i++)
+	for (int i = 1; i <= TN; i++)
 	{
-		// linear calculation
-		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2);  
-		// backward transform
+		// Solve linear part
+		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN);  
+		// Backward transform
     	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_INVERSE));
-		// normalize the transform
+		// Normalize the transform
 		normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN);
-		// nonlinear calculation
-		nonlin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, DT);
-		// forward transform
+		// Solve nonlinear part
+		nonlin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, DT, XN);
+		// Forward transform
     	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_FORWARD));
-		// linear calculation
-		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2);  
+		// Solve linear part
+		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN);  
 	}
-
-	// backward transform
+	// Wrap up timing file 
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, time, '-*r');\n");
+	fclose(fp);
+	
+	// Backward transform to retreive data
 	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_INVERSE));
-	// normalize the transform
+	// Normalize the transform
 	normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN);
 	
+	// Copy results to device
 	cudaMemcpy(h_psi, d_psi, sizeof(cufftComplex)*XN, cudaMemcpyDeviceToHost);
-	// plot results
+	
+	// Plot results
 	cm_plot_1df(h_psi_0, h_psi, LX, XN, "plottingf.m");
 
-	// garbage collection
+	// Wrap up
 	cufftDestroy(plan);
-	free(x);
+	free(h_x);
 	free(h_k2);
-	free(kx);
+	free(h_kx);
     free(h_psi_0);
 	free(h_psi);
 	cudaFree(d_psi);
 	cudaFree(d_k2);
+	
 	return 0;
 }
 
-__global__ void nonlin(cufftComplex *psi, float dt)
+__global__ void nonlin(cufftComplex *psi, float dt, int xn)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
+    
+	// Avoid first and last point (boundary conditions)
+	if (i >= xn - 1 || i == 0) return; 
     
 	float psi2 = cuCabsf(psi[i])*cuCabsf(psi[i]);
     cufftComplex expo = make_cuComplex(cos(psi2*dt), sin(psi2*dt));
 	psi[i] = cuCmulf(psi[i], expo);
 }
 
-__global__ void lin(cufftComplex *psi, float *k2, float dt)
+__global__ void lin(cufftComplex *psi, float *k2, float dt, int xn)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
+	
+	// Avoid first and last point (boundary conditions)
+	if (i >= xn - 1 || i == 0) return; 
 	
     cufftComplex expo = make_cuComplex(cos(k2[i]*dt), -sin(k2[i]*dt));
 	psi[i] = cuCmulf(psi[i], expo);
 }
 
-__global__ void normalize(cufftComplex *psi, int size)
+__global__ void normalize(cufftComplex *psi, int size, int xn)
 {
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
+
+	// Stay within range since grid might be larger
+	if (i >= xn) return; 
 
 	psi[i].x = psi[i].x/size; psi[i].y = psi[i].y/size;
 }

@@ -87,6 +87,7 @@ int main(int argc, char *argv[])
 		if(i % 100 == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
+	// Wrap up timing file
 	fprintf(fp, "];\n");
 	fprintf(fp, "plot(steps, time, '-*r');\n");
 	fclose(fp);

@@ -6,7 +6,7 @@
 #include "../lib/cu_helpers.h"
 
 // Grid Parameters
-#define XN	1024				// number of spatial ndes
+#define XN	1024				// number of spatial nodes
 #define TN	100000				// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
