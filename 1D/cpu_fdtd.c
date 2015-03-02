@@ -21,17 +21,20 @@ void nonlin(double *Re, double *Im, double dt, int xn);
 
 int main(int argc, char *argv[])
 {
-    // Print basic info about simulation
+	// Timing starts here
 	double t1 = get_cpu_time();
+	
+    // Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 
-	// Allocate and initialize the arrays
+	// Allocate the arrays
     double *x = (double*)malloc(sizeof(double) * XN);
 	double *Re = (double*)malloc(sizeof(double) * XN);
     double *Im = (double*)malloc(sizeof(double) * XN);
 	double *Re_0 = (double*)malloc(sizeof(double) * XN);
     double *Im_0 = (double*)malloc(sizeof(double) * XN);
 	
+	// Initial conditions
 	for (int i = 0; i < XN; i++)
 	{
 		x[i] = (i-XN/2)*DX;
@@ -61,6 +64,7 @@ int main(int argc, char *argv[])
 		if(i % 100 == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
+	// Wrap up timing file
 	fprintf(fp, "];\n");
 	fprintf(fp, "plot(steps, time, '-*r');\n");
 	fclose(fp);

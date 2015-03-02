@@ -53,7 +53,7 @@ int main(void)
 		h_Re_0[i] = h_Re[i];
 	}
     
-    // Allocate device arrays on and copy from host
+    // Allocate device arrays and copy from host
 	double *d_Re, *d_Im;
 	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(double) * XN));
 	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(double) * XN));
@@ -64,40 +64,45 @@ int main(void)
 	dim3 threadsPerBlock(128,1,1);
 	dim3 blocksPerGrid((XN + 127)/128,1,1);
 
+	// Print timing info to file
+	float time_value;
+	FILE *fp = fopen("test_1.m", "w");
+	fprintf(fp, "steps = [0:100:%d];\n", TN);
+	fprintf(fp, "time = [0, ");
+	
 	// Start time evolution
-	for (int i = 1; i < TN; i++)
+	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
-		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Solve nonlinear part
-		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT);
+		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Solve linear part
-		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		// Print time at specific intervals
+		if(i % 100 == 0)
+		{
+			cudaEventRecord(end_event, 0);
+			cudaEventSynchronize(end_event);
+			cudaEventElapsedTime(&time_value, begin_event, end_event);
+			fprintf(fp, "%f, ", time_value);
+		}
 	}
-	
-	// End timing and print to file 
-	cudaEventRecord(end_event, 0);
-    cudaEventSynchronize(end_event);
- 
-	float time_value;
-	cudaEventElapsedTime(&time_value, begin_event, end_event);
-	
-	FILE *fp = fopen(argv[2], "a");
-	fprintf(fp, "%f, ", t2-t1);
+	// Wrap up timing file 
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, time, '-*r');\n");
 	fclose(fp);
 
 	// Copy results to device
-	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(double)*XN, 
-															cudaMemcpyDeviceToHost));
-	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(double)*XN, 
-															cudaMemcpyDeviceToHost));
+	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(double)*XN, cudaMemcpyDeviceToHost));
+	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(double)*XN, cudaMemcpyDeviceToHost));
 	
 	// Plot results
 	m_plot_1d(h_Re_0, h_Im_0, h_Re, h_Im, L, XN, "gpu_fdtd.m");

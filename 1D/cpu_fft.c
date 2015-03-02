@@ -1,6 +1,6 @@
 /**********************************************************************************
  * Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1)D	  *
- * using explicit FDTD with second order splitting.                               *
+ * using symmetric split step Fourier method		                               *
  * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
  * ********************************************************************************/
 #include "../lib/timers.h"
@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
 {
 	// Timing starts here
 	double t1 = get_cpu_time();
+	
 	// Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 
@@ -61,6 +62,7 @@ int main(int argc, char *argv[])
     
 	// Forward transform
 	fftw_execute(forward);
+	
 	// Print timing info to file
 	FILE *fp = fopen("test_1.m", "w");
 	fprintf(fp, "steps = [0:100:%d];\n", TN);
