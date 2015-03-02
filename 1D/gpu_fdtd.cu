@@ -17,6 +17,9 @@
 #define A 1.0
 #define R 2.0
 
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
 // Function Prototypes
 __global__ void Re_lin_kernel(double *Re, double *Im, double dt, int xn, double dx);
 __global__ void Im_lin_kernel(double *Re, double *Im, double dt, int xn, double dx);
@@ -67,7 +70,7 @@ int main(void)
 	// Print timing info to file
 	float time_value;
 	FILE *fp = fopen("test_1.m", "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
 	// Start time evolution
@@ -87,7 +90,7 @@ int main(void)
         Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Print time at specific intervals
-		if(i % 100 == 0)
+		if(i % IRVL == 0)
 		{
 			cudaEventRecord(end_event, 0);
 			cudaEventSynchronize(end_event);

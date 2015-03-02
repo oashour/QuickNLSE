@@ -76,7 +76,7 @@ int main(void)
 	// Print timing info to file
 	float time_value;
 	FILE *fp = fopen("test_1.m", "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
 	// Forward transform
@@ -96,6 +96,13 @@ int main(void)
     	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_FORWARD));
 		// Solve linear part
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN);  
+		if(i % IRVL == 0)
+		{
+			cudaEventRecord(end_event, 0);
+			cudaEventSynchronize(end_event);
+			cudaEventElapsedTime(&time_value, begin_event, end_event);
+			fprintf(fp, "%f, ", time_value);
+		}
 	}
 	// Wrap up timing file 
 	fprintf(fp, "];\n");

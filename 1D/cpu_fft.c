@@ -17,6 +17,9 @@
 #define DX	(2*L / XN)			// spatial step size
 #define DT	(TT / TN)			// temporal step size
 
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
 // Function Prototypes
 void nonlin(fftw_complex *psi, double dt, int xn);
 void lin(fftw_complex *psi, double *k2, double dt, int xn);
@@ -65,7 +68,7 @@ int main(int argc, char *argv[])
 	
 	// Print timing info to file
 	FILE *fp = fopen("test_1.m", "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
 	// Start time evolution
@@ -84,7 +87,7 @@ int main(int argc, char *argv[])
 		// Solve linear part
 		lin(psi, k2, DT/2, XN);
 		// Print time at specific intervals
-		if(i % 100 == 0)
+		if(i % IRVL == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
 	// Wrap up timing file

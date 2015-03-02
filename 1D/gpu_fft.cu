@@ -14,6 +14,9 @@
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DT	(TT / TN)    			// temporal step size
 
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
 // Function prototypes
 __global__ void nonlin(cufftDoubleComplex *psi, double dt, int xn);
 __global__ void lin(cufftDoubleComplex *psi, double *k2, double dt, int xn);
@@ -78,7 +81,7 @@ int main(void)
 	// Print timing info to file
 	float time_value;
 	FILE *fp = fopen("test_1.m", "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 
 	// Forward transform 
@@ -104,7 +107,7 @@ int main(void)
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN);  
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Print time at specific intervals
-		if(i % 100 == 0)
+		if(i % IRVL == 0)
 		{
 			cudaEventRecord(end_event, 0);
 			cudaEventSynchronize(end_event);

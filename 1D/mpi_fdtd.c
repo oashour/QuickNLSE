@@ -4,7 +4,7 @@
 * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
 * ********************************************************************************/
 #include "../lib/helpers.h"
-#include<mpi.h>
+#include <mpi.h>
 
 // Define message sending tags and MPI root
 #define ROOT 0					// Root process rank
@@ -12,24 +12,23 @@
 #define TAG2 2                  // Send message left
 
 // Grid Parameters
-#define XN	1024				// number of spatial ndes
-#define TN	100000				// number of temporal nodes
-#define L	10.0				// Spatial Period
-#define TT	10.0                // Max time
-#define DX	(2*L / XN)			// spatial step size
-#define DT	(TT / TN)			// temporal step size
+#define XN	 1024				// number of spatial ndes
+#define TN	 100000  			// number of temporal nodes
+#define L	 10.0				// Spatial Period
+#define TT	 10.0               // Max time
+#define DX	 (2*L / XN)			// spatial step size
+#define DT	 (TT / TN)			// temporal step size
 
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
 
 // Function Prototypes
-void Re_lin(double *Re, double *Im, double dt, int xn, int dx, int p_nodes);
-void Im_lin(double *Re, double *Im, double dt, int xn, int dx, int p_nodes);
-void nonlin(double *Re, double *Im, double dt, int xn, int p_nodes);
-void syncImRe(int rank, int p, int p_nodes, double *Re, double *Im, 
-								double Re_1, double Re_n, MPI_Status *status);
-void syncIm(int rank, int p, int p_nodes, double *Re, double *Im, 
-								double Re_1, double Re_n, MPI_Status *status);
-void syncRe(int rank, int p, int p_nodes, double *Re, double *Im, 
-								double Re_1, double Re_n, MPI_Status *status);
+void Re_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p);
+void Im_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p);
+void nonlin(double *Re, double *Im, double dt, int p_nodes, int rank, int p);
+void syncImRe(int rank, int p, int p_nodes, double *Re, double *Im, MPI_Status *status);
+void syncIm(int rank, int p, int p_nodes, double *Re, double *Im, MPI_Status *status);
+void syncRe(int rank, int p, int p_nodes, double *Re, double *Im,  MPI_Status *status);
 
 int main(int argc, char** argv)
 {
@@ -43,7 +42,7 @@ int main(int argc, char** argv)
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	
 	// Timing starts here
-	// ***********************************************
+	double t1 = MPI_Wtime();
 
     // Print basic info about simulation
 	if(rank == ROOT)
@@ -51,7 +50,6 @@ int main(int argc, char** argv)
 
 	// Allocate the arrays
 	int p_nodes = XN/p;
-	double Re_1, Re_n;
 	double *Re_0, *Im_0, *Re_new, *Im_new;
    	double *Re = (double*)malloc(sizeof(double) * (p_nodes+2));
    	double *Im = (double*)malloc(sizeof(double) * (p_nodes+2));
@@ -74,13 +72,8 @@ int main(int argc, char** argv)
 			Im_0[i] = 0;    				 
 		}
 		
-		// Preserve initial conditions
-		Re_1 = Re_0[0];
-		Re_n = Re_0[XN-1];
+		free(x);
 	}
-	// Broadcast initial conditions to all processes
-	MPI_Bcast(&Re_1, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
-	MPI_Bcast(&Re_n, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 	// Scatter the initial array to divide among processes
 	MPI_Scatter(&Re_0[0], p_nodes, MPI_DOUBLE, &Re[1], p_nodes, 
 												MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
@@ -88,13 +81,14 @@ int main(int argc, char** argv)
 												MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 
 	// Sync between nodes in preparation for time evolution
-    syncImRe(rank, p, p_nodes, Re, Im, Re_1, Re_n, &status);
+    syncImRe(rank, p, p_nodes, Re, Im, &status);
 	
 	// Print timing info to file
+	FILE *fp;
 	if (rank == ROOT)
 	{
-		FILE *fp = fopen("test_1.m", "w");
-		fprintf(fp, "steps = [0:100:%d];\n", TN);
+		fp = fopen("test_1.m", "w");
+		fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 		fprintf(fp, "time = [0, ");
 	}
 
@@ -102,18 +96,23 @@ int main(int argc, char** argv)
 	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part and sync
-		Re_lin(Re, Im, DT*0.5, p_nodes, DX);
-		syncRe(rank, p, p_nodes, Re, Im, Re_1, Re_n, &status);
-		Im_lin(Re, Im, DT*0.5, p_nodes, DX);
-		syncIm(rank, p, p_nodes, Re, Im, Re_1, Re_n, &status);
+		Re_lin(Re, Im, DT*0.5, DX, p_nodes, rank, p);
+		syncRe(rank, p, p_nodes, Re, Im, &status);
+		Im_lin(Re, Im, DT*0.5, DX, p_nodes, rank, p);
+		syncIm(rank, p, p_nodes, Re, Im, &status);
 		// Solve nonlinear part and sync
-		nonlin(Re, Im, DT, p_nodes);
-		syncImRe(rank, p, p_nodes, Re, Im, Re_1, Re_n, &status);
+		nonlin(Re, Im, DT, p_nodes, rank, p);
+		syncImRe(rank, p, p_nodes, Re, Im, &status);
 		// Solve linear part and sync
-		Re_lin(Re, Im, DT*0.5, p_nodes, DX);
-		syncRe(rank, p, p_nodes, Re, Im, Re_1, Re_n, &status);
-		Im_lin(Re, Im, DT*0.5, p_nodes, DX);
-		syncIm(rank, p, p_nodes, Re, Im, Re_1, Re_n, &status);
+		Re_lin(Re, Im, DT*0.5, DX, p_nodes, rank, p);
+		syncRe(rank, p, p_nodes, Re, Im, &status);
+		Im_lin(Re, Im, DT*0.5, DX, p_nodes, rank, p);
+		syncIm(rank, p, p_nodes, Re, Im, &status);
+ 		// Print time at specific intervals
+		if (rank == ROOT)
+			if (i % IRVL == 0)
+				fprintf(fp, "%f, ", MPI_Wtime() -t1);
+
 	}
 	// Wrap up timing file
 	if (rank == ROOT)
@@ -137,7 +136,7 @@ int main(int argc, char** argv)
 	if(rank == ROOT)
 	{
 		m_plot_1d(Re_0, Im_0, Re_new, Im_new, L, XN, "mpi_new.m");
-		free(Re_0); free(Im_0); free(Re_new); free(Im_new); free(x);
+		free(Re_0); free(Im_0); free(Re_new); free(Im_new); 
 	}
 
 	// Clean up 
@@ -149,29 +148,39 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-void Re_lin(double *Re, double *Im, double dt, int p_nodes, double dx)
+void Re_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p)
 {                  
-	// Avoid first and last point (for all processes this is values from other arrays)
-	// For root and last, they are zero ghost values and boundary conditions are sync'd
-	for(int i = 1; i < p_nodes+1; i++) // modify bounds
-		Re[i] = Re[i] - dt/(dx*dx)*(Im[i+1] - 2*Im[i] + Im[i-1]);
-}
-
-void Im_lin(double *Re, double *Im, double dt, int p_nodes, double dx)
-{                  
-	// Avoid first and last point (for all processes this is values from other arrays)
-	// For root and last, they are zero ghost values and boundary conditions are sync'd
-	for(int i = 1; i < p_nodes+1; i++) // modify bounds
-		Im[i] = Im[i] + dt/(dx*dx)*(Re[i+1] - 2*Re[i] + Re[i-1]);
-}
-
-void nonlin(double *Re, double *Im, double dt, int p_nodes)
-{                  
-	double Rp, Ip, A2;
-	// Avoid first and last point (for all processes this is values from other arrays)
-	// For root and last, they are zero ghost values and boundary conditions are sync'd
+	// Avoid first and last point (copied values or ghost zeros for root and last)
 	for(int i = 1; i < p_nodes+1; i++) 
 	{
+		// Avoid boundary conditions
+		if(((i == 1) && (rank == ROOT)) || ((i == p_nodes) && (rank == p-1))) continue;	
+		
+		Re[i] = Re[i] - dt/(dx*dx)*(Im[i+1] - 2*Im[i] + Im[i-1]);
+	}
+}
+
+void Im_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p)
+{                  
+	// Avoid first and last point (copied values or ghost zeros for root and last)
+	for(int i = 1; i < p_nodes+1; i++) 
+	{
+		// Avoid boundary conditions
+		if(((i == 1) && (rank == ROOT)) || ((i == p_nodes) && (rank == p-1))) continue;	
+		
+		Im[i] = Im[i] + dt/(dx*dx)*(Re[i+1] - 2*Re[i] + Re[i-1]);
+	}
+}
+
+void nonlin(double *Re, double *Im, double dt, int p_nodes, int rank, int p)
+{                  
+	double Rp, Ip, A2;
+	// Avoid first and last point (copied values or ghost zeros for root and last)
+	for(int i = 1; i < p_nodes+1; i++) 
+	{
+		// Avoid boundary conditions
+		if(((i == 1) && (rank == ROOT)) || ((i == p_nodes) && (rank == p-1))) continue;	
+		
 		Rp = Re[i]; 
 		Ip = Im[i];
 		A2 = Rp*Rp+Ip*Ip;
@@ -181,12 +190,10 @@ void nonlin(double *Re, double *Im, double dt, int p_nodes)
 	}
 }
 
-void syncRe(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, double Re_n, MPI_Status *status)
+void syncRe(int rank, int p, int p_nodes, double *Re, double *Im, MPI_Status *status)
 {
 	if(rank == 0)
 	{
-		// Reset boundary conditions
-		Re[1] = Re_1; 
 		// Send to the right (TAG1)
 		MPI_Send(&Re[p_nodes], 1, MPI_DOUBLE, 1, TAG1, MPI_COMM_WORLD);
 		// Reeceive from the right (TAG2)
@@ -194,8 +201,6 @@ void syncRe(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, d
 	}
 	else if(rank == p-1)
 	{
-		// Reset boundary conditions
-		Re[p_nodes] = Re_n; 
 		// Send to the left (TAG2)
 		MPI_Send(&Re[1], 1, MPI_DOUBLE, p-2, TAG2, MPI_COMM_WORLD);
 		// Reeceive from the left (TAG1)
@@ -213,12 +218,10 @@ void syncRe(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, d
 		MPI_Recv(&Re[p_nodes+1], 1, MPI_DOUBLE, rank+1, TAG2, MPI_COMM_WORLD, status);
 	}
 }
-void syncIm(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, double Re_n, MPI_Status *status)
+void syncIm(int rank, int p, int p_nodes, double *Re, double *Im, MPI_Status *status)
 {
 	if(rank == 0)
 	{
-		// Reset boundary conditions
-	    Im[1] = 0;
 		// Send to the right (TAG1)
 		MPI_Send(&Im[p_nodes], 1, MPI_DOUBLE, 1, TAG1, MPI_COMM_WORLD);
 		// Reeceive from the right (TAG2)
@@ -226,8 +229,6 @@ void syncIm(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, d
 	}
 	else if(rank == p-1)
 	{
-		// Reset boundary conditions
-		Im[p_nodes] = 0;
 		// Send to the left (TAG2)
 		MPI_Send(&Im[1], 1, MPI_DOUBLE, p-2, TAG2, MPI_COMM_WORLD);
 		// Reeceive from the left (TAG1)
@@ -245,12 +246,10 @@ void syncIm(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, d
 		MPI_Recv(&Im[p_nodes+1], 1, MPI_DOUBLE, rank+1, TAG2, MPI_COMM_WORLD, status);
 	}
 }
-void syncImRe(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1, double Re_n, MPI_Status *status)
+void syncImRe(int rank, int p, int p_nodes, double *Re, double *Im, MPI_Status *status)
 {
 	if(rank == 0)
 	{
-		// Reset boundary conditions
-		Re[1] = Re_1; Im[1] = 0;
 		// Send to the right (TAG1)
 		MPI_Send(&Re[p_nodes], 1, MPI_DOUBLE, 1, TAG1, MPI_COMM_WORLD);
 		MPI_Send(&Im[p_nodes], 1, MPI_DOUBLE, 1, TAG1, MPI_COMM_WORLD);
@@ -260,7 +259,6 @@ void syncImRe(int rank, int p, int p_nodes, double *Re, double *Im, double Re_1,
 	}
 	else if(rank == p-1)
 	{
-		Re[p_nodes] = Re_n; Im[p_nodes] = 0;
 		// Send to the left (TAG2)
 		MPI_Send(&Re[1], 1, MPI_DOUBLE, p-2, TAG2, MPI_COMM_WORLD);
 		MPI_Send(&Im[1], 1, MPI_DOUBLE, p-2, TAG2, MPI_COMM_WORLD);
