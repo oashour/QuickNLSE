@@ -1,15 +1,15 @@
 /**********************************************************************************
- * Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1)D	  *
- * using symmetric split step Fourier method		                               *
- * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
- * ********************************************************************************/
+* Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1)D	 	  *
+* using symmetric split step Fourier method		                              	  *
+* Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+* ********************************************************************************/
 #include "../lib/timers.h"
 #include "../lib/helpers.h"
 #include <fftw3.h>
 
 #define M_PI 3.14159265358979323846264338327
 
-// given stuff
+// Grid parameters
 #define XN	1024				// number of Fourier Modes
 #define TN	100000				// number of temporal nodes
 #define L	10.0				// Spatial Period
