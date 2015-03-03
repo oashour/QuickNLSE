@@ -1,5 +1,5 @@
 /**********************************************************************************
- * Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1)D	  *
+ * Numerical Solution for the Cubic Nonlinear Schrodinger Equation in (1+1) D	  *
  * using explicit FDTD with second order splitting.                               *
  * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
  * ********************************************************************************/
