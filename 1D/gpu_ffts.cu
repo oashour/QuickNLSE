@@ -7,12 +7,19 @@
 #include <cufft.h>
 
 // Grid Parameters
-#define XN	2048					// Number of Fourier modes
-#define TN	10000					// Number of temporal nodes
+#define XN	1024					// Number of Fourier modes
+#define TN	100000					// Number of temporal nodes
 #define LX	10.0					// x-spatial domain [-LX,LX)
 #define TT	10.0            		// Max time
 #define DX	(2*LX / XN)				// x-spatial step size
 #define DT	(TT / TN)    			// temporal step size
+
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
+// Output files
+#define PLOT_F "gpu_ffts_plot.m"
+#define TIME_F "gpu_ffts_time.m"
 
 // Function prototypes
 __global__ void nonlin(cufftComplex *psi, float dt, int xn);
@@ -27,7 +34,7 @@ int main(void)
 	cudaEventCreate(&end_event);
     
 	// Timing starts here
-	cudaEventRecord(beginEvent, 0);
+	cudaEventRecord(begin_event, 0);
 	
 	// Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
@@ -75,7 +82,7 @@ int main(void)
 
 	// Print timing info to file
 	float time_value;
-	FILE *fp = fopen("test_1.m", "w");
+	FILE *fp = fopen(TIME_F, "w");
 	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
@@ -106,7 +113,7 @@ int main(void)
 	}
 	// Wrap up timing file 
 	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time, '-*r');\n");
+	fprintf(fp, "plot(steps, time/1000, '-*r');\n");
 	fclose(fp);
 	
 	// Backward transform to retreive data
@@ -118,7 +125,7 @@ int main(void)
 	cudaMemcpy(h_psi, d_psi, sizeof(cufftComplex)*XN, cudaMemcpyDeviceToHost);
 	
 	// Plot results
-	cm_plot_1df(h_psi_0, h_psi, LX, XN, "plottingf.m");
+	cm_plot_1df(h_psi_0, h_psi, LX, XN, PLOT_F);
 
 	// Wrap up
 	cufftDestroy(plan);
@@ -137,31 +144,31 @@ __global__ void nonlin(cufftComplex *psi, float dt, int xn)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
     
-	// Avoid first and last point (boundary conditions)
-	if (i >= xn - 1 || i == 0) return; 
-    
+	// Avoid first and last point (boundary conditions) (needs fixing)
+	//if (i >= xn - 1 || i == 0) return; 
+	if (i >= xn) return; 
+
 	float psi2 = cuCabsf(psi[i])*cuCabsf(psi[i]);
-    cufftComplex expo = make_cuComplex(cos(psi2*dt), sin(psi2*dt));
-	psi[i] = cuCmulf(psi[i], expo);
+	psi[i] = cuCmulf(psi[i], make_cuComplex(cos(psi2*dt), sin(psi2*dt)));
 }
 
 __global__ void lin(cufftComplex *psi, float *k2, float dt, int xn)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
 	
-	// Avoid first and last point (boundary conditions)
-	if (i >= xn - 1 || i == 0) return; 
+	// Avoid first and last point (boundary conditions) (needs fixing)
+	//if (i >= xn - 1 || i == 0) return; 
+	if (i >= xn) return; 
 	
-    cufftComplex expo = make_cuComplex(cos(k2[i]*dt), -sin(k2[i]*dt));
-	psi[i] = cuCmulf(psi[i], expo);
+	psi[i] = cuCmulf(psi[i], make_cuComplex(cos(k2[i]*dt), -sin(k2[i]*dt)));
 }
 
-__global__ void normalize(cufftComplex *psi, int size, int xn)
+__global__ void normalize(cufftComplex *psi, int size)
 {
 	int i = threadIdx.x + blockIdx.x * blockDim.x; 
 
 	// Stay within range since grid might be larger
-	if (i >= xn) return; 
+	if (i >= size) return; 
 
 	psi[i].x = psi[i].x/size; psi[i].y = psi[i].y/size;
 }

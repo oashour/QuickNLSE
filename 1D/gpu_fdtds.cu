@@ -17,6 +17,10 @@
 #define A 1.0
 #define R 2.0
 
+// Output files
+#define PLOT_F "gpu_fdtds_plot.m"
+#define TIME_F "gpu_fdtds_time.m"
+
 __global__ void R_lin_kernel(float *Re, float *Im, float dt, int xn, float dx);
 __global__ void I_lin_kernel(float *Re, float *Im, float dt, int xn, float dx);
 __global__ void nonlin_kernel(float *Re, float *Im, float dt, int xn);
@@ -29,7 +33,7 @@ int main(void)
 	cudaEventCreate(&end_event);
     
 	// Timing starts here
-	cudaEventRecord(beginEvent, 0);
+	cudaEventRecord(begin_event, 0);
 	
 	// Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
@@ -65,7 +69,7 @@ int main(void)
 
 	// Print timing info to file
 	float time_value;
-	FILE *fp = fopen("test_1.m", "w");
+	FILE *fp = fopen(TIME_F, "w");
 	fprintf(fp, "steps = [0:100:%d];\n", TN);
 	fprintf(fp, "time = [0, ");
 	
@@ -73,17 +77,17 @@ int main(void)
 	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
-		R_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+		R_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        I_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+        I_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Solve nonlinear part
-		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT);
+		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT, XN);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Solve linear part
-		R_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+		R_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        I_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+        I_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		// Print time at specific intervals
 		if(i % 100 == 0)
@@ -96,7 +100,7 @@ int main(void)
 	}
 	// Wrap up timing file 
 	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time, '-*r');\n");
+	fprintf(fp, "plot(steps, time/1000, '-*r');\n");
 	fclose(fp);
  
 	// Copy results to device
@@ -106,7 +110,7 @@ int main(void)
 															cudaMemcpyDeviceToHost));
 	
 	// PLot results
-	m_plot_1df(h_Re_0, h_Im_0, h_Re, h_Im, L, XN, "gpu_fdtd.m");
+	m_plot_1df(h_Re_0, h_Im_0, h_Re, h_Im, L, XN, PLOT_F);
 	
 	// Clean up
 	free(h_Re); 

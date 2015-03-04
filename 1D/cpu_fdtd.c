@@ -17,6 +17,10 @@
 // Timing parameters
 #define IRVL  100				// Timing interval. Take a reading every N iterations.
 
+// Output files
+#define PLOT_F "cpu_fdtd_plot.m"
+#define TIME_F "cpu_fdtd_time.m"
+
 // Function Prototypes
 void Re_lin(double *Re, double *Im, double dt, int xn, double dx);
 void Im_lin(double *Re, double *Im, double dt, int xn, double dx);
@@ -48,7 +52,7 @@ int main(int argc, char *argv[])
 	}
 	
 	// Print timing info to file
-	FILE *fp = fopen("test_1.m", "w");
+	FILE *fp = fopen(TIME_F, "w");
 	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
@@ -73,7 +77,7 @@ int main(int argc, char *argv[])
 	fclose(fp);
 	
 	// Plot results
-	m_plot_1d(Re_0, Im_0, Re, Im, L, XN, "cpu_fdtd.m");
+	m_plot_1d(Re_0, Im_0, Re, Im, L, XN, PLOT_F);
 
 	// Clean up
 	free(Re); 

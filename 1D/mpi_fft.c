@@ -12,7 +12,7 @@
 
 // Grid parameters
 #define XN	1024		  // number of Fourier Modes
-#define TN	10000		  // number of temporal nodes
+#define TN	100000		  // number of temporal nodes
 #define L	10.0		  // Spatial Period
 #define TT	10.0          // Max time
 #define DX	(2*L / XN) 	  // spatial step size
@@ -23,6 +23,10 @@
 
 // Timing parameters
 #define IRVL  100				// Timing interval. Take a reading every N iterations.
+
+// Output files
+#define PLOT_F "mpi_fft_plot.m"
+#define TIME_F "mpi_fft_time.m"
 
 // Function Prototypes
 void nonlin(fftw_complex *psi, double dt, ptrdiff_t end, int rank, int p);
@@ -42,6 +46,10 @@ int main(int argc, char *argv[])
 	// Timing starts here
 	double t1 = MPI_Wtime();
 	
+    // Print basic info about simulation
+	if(rank == ROOT)
+		printf("XN: %d, DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
+ 
 	// FFT grid set up
 	ptrdiff_t alloc_local, local_ni, local_i_start, local_no, local_o_start;
     alloc_local = fftw_mpi_local_size_1d(XN, MPI_COMM_WORLD, FFTW_FORWARD, FFTW_ESTIMATE,
@@ -102,7 +110,7 @@ int main(int argc, char *argv[])
 	FILE *fp;
 	if (rank == ROOT)
 	{
-		fp = fopen("test_1.m", "w");
+		fp = fopen(TIME_F, "w");
 		fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 		fprintf(fp, "time = [0, ");
 	}
@@ -154,7 +162,7 @@ int main(int argc, char *argv[])
 	// Plot results
 	if(rank == ROOT)
 	{
-		cm_plot_1d(psi_0, psi_new, L, XN, "mpifft.m");
+		cm_plot_1d(psi_0, psi_new, L, XN, PLOT_F);
 		fftw_free(psi_new); fftw_free(psi_0); fftw_free(kx);
 	}
 
@@ -173,8 +181,8 @@ void nonlin(fftw_complex *psi, double dt, ptrdiff_t end, int rank, int p)
 {                  
 	for(int i = 0; i < end; i++)
 	{
-		// Avoid boundary conditions
-		if(((i == 0) && (rank == ROOT)) || ((i == end) && (rank == p-1))) continue;	
+		// Avoid boundary conditions (needs fixing)
+		// if(((i == 0) && (rank == ROOT)) || ((i == end-1) && (rank == p-1)))	continue;
     	
 		psi[i] = cexp(I * cabs(psi[i]) * cabs(psi[i]) * dt)*psi[i];
 	}
@@ -184,9 +192,9 @@ void lin(fftw_complex *psi, double *k2, double dt, ptrdiff_t end, int rank, int 
 {                  
 	for(int i = 0; i < end; i++)
 	{
-		// Avoid boundary conditions
-		if(((i == 0) && (rank == ROOT)) || ((i == end) && (rank == p-1))) continue;	
-    	
+		// Avoid boundary conditions (needs fixing)
+		// if(((i == 0) && (rank == ROOT)) || ((i == end-1) && (rank == p-1)))	continue;
+
 		psi[i] = cexp(-I * k2[i] * dt)*psi[i];
 	}
 }

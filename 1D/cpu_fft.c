@@ -20,6 +20,10 @@
 // Timing parameters
 #define IRVL  100				// Timing interval. Take a reading every N iterations.
 
+// Output files
+#define PLOT_F "cpu_fft_plot.m"
+#define TIME_F "cpu_fft_time.m"
+
 // Function Prototypes
 void nonlin(fftw_complex *psi, double dt, int xn);
 void lin(fftw_complex *psi, double *k2, double dt, int xn);
@@ -67,7 +71,7 @@ int main(int argc, char *argv[])
 	fftw_execute(forward);
 	
 	// Print timing info to file
-	FILE *fp = fopen("test_1.m", "w");
+	FILE *fp = fopen(TIME_F, "w");
 	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
@@ -101,7 +105,7 @@ int main(int argc, char *argv[])
 	normalize(psi, XN);
 	
 	// Plot results
-	cm_plot_1d(psi_0, psi, L, XN, "cpu_fft.m");
+	cm_plot_1d(psi_0, psi, L, XN, PLOT_F);
 
 	// Clean up
 	fftw_destroy_plan(forward);
@@ -117,15 +121,15 @@ int main(int argc, char *argv[])
 
 void nonlin(fftw_complex *psi, double dt, int xn)
 {                  
-	// Avoid first and last point (boundary conditions)
-	for(int i = 1; i < xn-1; i++)
+	// Avoid first and last point (boundary conditions) (needs fixing)
+	for(int i = 0; i < xn; i++)
     	psi[i] = cexp(I * cabs(psi[i]) * cabs(psi[i]) * dt)*psi[i];
 }
 
 void lin(fftw_complex *psi, double *k2, double dt, int xn)
 {                  
-	// Avoid first and last point (boundary conditions)
-	for(int i = 1; i < xn-1; i++)
+	// Avoid first and last point (boundary conditions) (needs fixing)
+	for(int i = 0; i < xn; i++)
     	psi[i] = cexp(-I * k2[i] * dt)*psi[i];
 }
 

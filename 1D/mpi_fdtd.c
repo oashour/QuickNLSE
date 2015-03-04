@@ -22,6 +22,10 @@
 // Timing parameters
 #define IRVL  100				// Timing interval. Take a reading every N iterations.
 
+// Output files
+#define PLOT_F "mpi_fdtd_plot.m"
+#define TIME_F "mpi_fdtd_time.m"
+
 // Function Prototypes
 void Re_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p);
 void Im_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p);
@@ -87,7 +91,7 @@ int main(int argc, char** argv)
 	FILE *fp;
 	if (rank == ROOT)
 	{
-		fp = fopen("test_1.m", "w");
+		fp = fopen(TIME_F, "w");
 		fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 		fprintf(fp, "time = [0, ");
 	}
@@ -135,7 +139,7 @@ int main(int argc, char** argv)
 	// Plot results
 	if(rank == ROOT)
 	{
-		m_plot_1d(Re_0, Im_0, Re_new, Im_new, L, XN, "mpi_new.m");
+		m_plot_1d(Re_0, Im_0, Re_new, Im_new, L, XN, PLOT_F);
 		free(Re_0); free(Im_0); free(Re_new); free(Im_new); 
 	}
 

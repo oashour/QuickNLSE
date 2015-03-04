@@ -23,12 +23,12 @@ void m_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im,
 	fprintf(matlab_file, "f_0 = [");
 
 	for(int i = 0; i < xn; i++)	
-		fprintf(matlab_file, "%0.10f ", sqrt(Re_0[i] * Re_0[i] + Im_0[i] * Im_0[i]));
+		fprintf(matlab_file, "%f ", sqrt(Re_0[i] * Re_0[i] + Im_0[i] * Im_0[i]));
 	fprintf(matlab_file,"];\n\n");                                                                 
 
 	fprintf(matlab_file, "f_f = [");
 	for(int i = 0; i < xn; i++)	
-		fprintf(matlab_file, "%0.10f ", sqrt(Re[i] * Re[i] + Im[i] * Im[i]));
+		fprintf(matlab_file, "%f ", sqrt(Re[i] * Re[i] + Im[i] * Im[i]));
 	fprintf(matlab_file,"];\n\n");                                                                 
 	
 	fprintf(matlab_file, "plot(x, f_0, '-r', 'LineWidth', 1); grid on;\n"
@@ -61,12 +61,12 @@ void cm_plot_1d(complex double *f_0, complex double *f,
 	fprintf(matlab_file, "f_0 = [");
 
 	for(int i = 0; i < xn; i++)	
-		fprintf(matlab_file, "%0.10f ", cabs(f_0[i]));
+		fprintf(matlab_file, "%f ", cabs(f_0[i]));
 	fprintf(matlab_file,"];\n\n");                                                                 
 
 	fprintf(matlab_file, "f_f = [");
 	for(int i = 0; i < xn; i++)	
-		fprintf(matlab_file, "%0.10f ", cabs(f[i]));
+		fprintf(matlab_file, "%f ", cabs(f[i]));
 	fprintf(matlab_file,"];\n\n");                                                                 
 	
 	fprintf(matlab_file, "plot(x, f_0, '-r', 'LineWidth', 1); grid on;\n"
@@ -110,20 +110,20 @@ void m_plot_2d(double *Re_0, double *Im_0, double *Re, double *Im, double *max,
 	// Generate the array for max |f|
     fprintf(matlab_file, "max = [");
 	for(int i = 0; i < tn; i++)
-		fprintf(matlab_file, "%0.10f ", max[i]);
+		fprintf(matlab_file, "%f ", max[i]);
 	fprintf(matlab_file, "];\n\n");
 	
 	// generate initial pulse matrix
 	fprintf(matlab_file, "f_0 = [");
 	for(int i = 0; i < xn*yn; i++)	
-		fprintf(matlab_file, "%0.10f ", sqrt(Re_0[i] * Re_0[i] + Im_0[i] * Im_0[i]));
+		fprintf(matlab_file, "%f ", sqrt(Re_0[i] * Re_0[i] + Im_0[i] * Im_0[i]));
 	fprintf(matlab_file,"];\n");                                                                 
     fprintf(matlab_file,"f_0 = vec2mat(f_0,%d);\n\n", xn);
 
 	// Generate final pulse matrix
 	fprintf(matlab_file, "f_f = [");
 	for(int i = 0; i < xn*yn; i++)	
-		fprintf(matlab_file, "%0.10f ", sqrt(Re[i] * Re[i] + Im[i] * Im[i]));
+		fprintf(matlab_file, "%f ", sqrt(Re[i] * Re[i] + Im[i] * Im[i]));
 	fprintf(matlab_file,"];\n");                                                                 
     fprintf(matlab_file,"f_f = vec2mat(f_f,%d);\n\n", xn);
 	
@@ -177,20 +177,20 @@ void cm_plot_2d(complex double *psi_0, complex double *psi, double *max,
 	// Generate the array for max |f|
     fprintf(matlab_file, "max = [");
 	for(int i = 0; i < tn; i++)
-		fprintf(matlab_file, "%0.10f ", max[i]);
+		fprintf(matlab_file, "%f ", max[i]);
 	fprintf(matlab_file, "];\n\n");
 	
 	// generate initial pulse matrix
 	fprintf(matlab_file, "f_0 = [");
 	for(int i = 0; i < xn*yn; i++)	
-		fprintf(matlab_file, "%0.10f ", cabs(psi_0[i]));
+		fprintf(matlab_file, "%f ", cabs(psi_0[i]));
 	fprintf(matlab_file, "];\n");                                                                 
     fprintf(matlab_file, "f_0 = vec2mat(f_0,%d);\n\n", xn);
 
 	// Generate final pulse matrix
 	fprintf(matlab_file, "f_f = [");
 	for(int i = 0; i < xn*yn; i++)	
-		fprintf(matlab_file, "%0.10f ", cabs(psi[i]));
+		fprintf(matlab_file, "%f ", cabs(psi[i]));
 	fprintf(matlab_file, "];\n");                                                                 
     fprintf(matlab_file, "f_f = vec2mat(f_f,%d);\n\n", xn);
 	
