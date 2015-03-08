@@ -1,48 +1,61 @@
- // Cubic Quintic Nonlinear Schrodinger Equation
+/**********************************************************************************
+* Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation in      *
+* (1+1)D using explicit FDTD with second order splitting.                         *    *
+* Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+* ********************************************************************************/
 #include "../lib/helpers.h"
+#include "../lib/timers.h"
 
-// given parameters for FDTD                                              XN
-#define XN	64			// number of X nodes                       _____________
-#define YN	64			// number of Y nodes                    Y |_|_|_|_|_|_|_|H
-#define TN	100			// number of temporal nodes             N |_|_|_|_|_|_|_|E
-#define LX	50.0		// maximum X                            O |_|_|_|_|_|_|_|Im
-#define LY	50.0		// maximum Y                            D |_|_|_|_|_|_|_|G
-#define TT	10.0  		// maximum t                            E |_|_|_|_|_|_|_|H
-//                                                              S |_|_|_|_|_|_|_|T
-// Gaussian Parameters                                                 WIDTH
-#define  A_S 	(3.0/sqrt(8.0))
-#define  R_s 	(sqrt(32.0/9.0))
-#define  A 		0.6
-#define  R 	(1.0/(A*sqrt(1.0-A*A)))
+// Grid parameters                                              
+#define XN	64			// Number of X nodes                       ______XN _____
+#define YN	64			// Number of Y nodes                    Y |_|_|_|_|_|_|_|H
+#define TN	10000		// number of temporal nodes             N |_|_|_|_|_|_|_|E
+#define LX	50.0		// Maximum X                            O |_|_|_|_|_|_|_|I
+#define LY	50.0		// Maximum Y                            D |_|_|_|_|_|_|_|G
+#define TT	10.0  		// Maximum t                            E |_|_|_|_|_|_|_|H
+#define DX	(2*LX / XN)	// Spacing between X nodes				S |_|_|_|_|_|_|_|T
+#define DY	(2*LY / YN)	// Spacing between Y nodes				       WIDTH
+#define DT	(TT / TN)   // Spacing between temporal nodes                        
 
-// calculated from given
-#define DX	(2*LX / XN)
-#define DY	(2*LY / YN)
-#define DT	(TT / TN)
+// Gaussian Parameters                                                 
+#define  A_S 	(3.0/sqrt(8.0))     	// A Star
+#define  R_S 	(sqrt(32.0/9.0))    	// R Star
+#define  A 		0.6                 	// A
+#define  R 		(1.0/(A*sqrt(1.0-A*A))) // R
 
-// Imndex linearization for kernels [x,y] = [x * width + y] 
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
+// Output files
+#define PLOT_F "cpu_fdtd_plot.m"
+#define TIME_F "cpu_fdtd_time.m"
+
+// Index flattening macro [x,y] = [x * width + y] 
 #define ind(i,j)  ((i)*XN+(j))		//[i  ,j  ] 
 
 // Function prototypes 
-void Re_lin(double *Re, double *Im, double dt);
-void Im_lin(double *Re, double *Im, double dt);
-void nonlin(double *Re, double *Im, double dt);
+void Re_lin(double *Re, double *Im, double dt, int xn, int yn, double dx, double dy);
+void Im_lin(double *Re, double *Im, double dt, int xn, int yn, double dx, double dy);
+void nonlin(double *Re, double *Im, double dt, int xn, int yn);
 
 int main(void)
 {
-    printf("DX: %f, DT: %f, dt/dx^2: %f\n", DX, DT, DT/(DX*DX));
+	// Timing starts here
+	double t1 = get_cpu_time();
+    
+	// Print basic info about simulation
+	printf("XN: %d, DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 	
-    // Allocate x, y, Re and Im on host. Max will be use to store max |psi|
-	// Re_0 and Im_0 will keep a copy of initial pulse for printing
-	double *x = (double*)malloc(sizeof(double) * XN);
-	double *y = (double*)malloc(sizeof(double) * YN);
-	double *max = (double*)malloc(sizeof(double) * TN);
-	double *Re = (double*)malloc(sizeof(double) * XN * YN);
-    double *Im = (double*)malloc(sizeof(double) * XN * YN);   
+	// Allocate the arrays
+	double *x    = (double*)malloc(sizeof(double) * XN);
+	double *y    = (double*)malloc(sizeof(double) * YN);
+	double *max  = (double*)malloc(sizeof(double) * (TN + 1));
+	double *Re   = (double*)malloc(sizeof(double) * XN * YN);
+    double *Im   = (double*)malloc(sizeof(double) * XN * YN);   
 	double *Re_0 = (double*)malloc(sizeof(double) * XN * YN);
     double *Im_0 = (double*)malloc(sizeof(double) * XN * YN);   
 	
-	// initialize x and y.
+	// Initialize x and y
 	for(int i = 0; i < XN ; i++)
 		x[i] = (i-XN/2)*DX;
 		
@@ -53,32 +66,46 @@ int main(void)
     for(int j = 0; j < YN; j++)
 		for(int i = 0; i < XN; i++)
 			{
-				Re[ind(i,j)] = A_S*A*exp(-(x[i]*x[i]+y[j]*y[j])/(2*R*R*R_s*R_s)); 
+				Re[ind(i,j)] = A_S*A*exp(-(x[i]*x[i]+y[j]*y[j])/(2*R*R*R_S*R_S)); 
 				Im[ind(i,j)] = 0;
 				Re_0[ind(i,j)] = Re[ind(i,j)];
 				Im_0[ind(i,j)] = Im[ind(i,j)];
 			}
 	
-	// print max |psi| for initial conditions
+	// Print timing info to file
+	FILE *fp = fopen(TIME_F, "w");
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
+	fprintf(fp, "time = [0, ");
+	
+	// Save max |psi| for printing
 	max_psi(Re, Im, max, 0, XN*YN);
-	// Begin timing
-	for (int i = 1; i < TN; i++)
+	
+	// Start time evolution
+	for (int i = 1; i <= TN; i++)
 	{
-		// linear
-		Re_lin(Re, Im, DT*0.5);
-        Im_lin(Re, Im, DT*0.5);
-		// nonlinear
-		nonlin(Re, Im, DT);
-		// linear
-		Re_lin(Re, Im, DT*0.5);
-        Im_lin(Re, Im, DT*0.5);
-		// find max psi
+		// Solve linear part
+		Re_lin(Re, Im, DT*0.5, XN, YN, DX, DY);
+        Im_lin(Re, Im, DT*0.5, XN, YN, DX, DY);
+		// Solve nonlinear part
+		nonlin(Re, Im, DT, XN, YN);
+		// Solve linear part
+		Re_lin(Re, Im, DT*0.5, XN, YN, DX, DY);
+        Im_lin(Re, Im, DT*0.5, XN, YN, DX, DY);
+		// Save max |psi| for later printing
 		max_psi(Re, Im, max, i, XN*YN);
+		// Print time at specific intervals
+		if(i % IRVL == 0)
+			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
-
-	// Generate MATLAB file to plot max |psi| and the initial and final pulses
-	m_plot_2d(Re_0, Im_0, Re, Im, max, LX, LY, XN, YN, TN, "cpu_new.m");
-	// wrap up                                                  
+	// Wrap up timing file
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, time, '-*r');\n");
+	fclose(fp);
+	
+	// Plot results
+	m_plot_2d(Re_0, Im_0, Re, Im, max, LX, LY, XN, YN, TN, PLOT_F);
+	
+	// Clean up                                                  
 	free(Re); 
 	free(Im); 
 	free(Re_0); 
@@ -90,35 +117,35 @@ int main(void)
 	return 0;
 }
 
-void Re_lin(double *Re, double *Im, double dt)
+void Re_lin(double *Re, double *Im, double dt, int xn, int yn, double dx, double dy)
 {                  
-	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int j = 1; j < YN - 1; j++)
-		for(int i = 1; i < XN - 1; i++)
+	// Avoid first and last point (boundary conditions)
+    for(int j = 1; j < yn - 1; j++)
+		for(int i = 1; i < xn - 1; i++)
 			Re[ind(i,j)] = Re[ind(i,j)] 
-						   - dt/(DX*DX)*(Im[ind(i+1,j)] - 2*Im[ind(i,j)] + Im[ind(i-1,j)])
-						   - dt/(DY*DY)*(Im[ind(i,j+1)] - 2*Im[ind(i,j)] + Im[ind(i,j-1)]);
+						   - dt/(dx*dx)*(Im[ind(i+1,j)] - 2*Im[ind(i,j)] + Im[ind(i-1,j)])
+						   - dt/(dy*dy)*(Im[ind(i,j+1)] - 2*Im[ind(i,j)] + Im[ind(i,j-1)]);
 }
 
-void Im_lin(double *Re, double *Im, double dt)
+void Im_lin(double *Re, double *Im, double dt, int xn, int yn, double dx, double dy)
 {                  
-	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int j = 1; j < YN - 1; j++)
-		for(int i = 1; i < XN - 1; i++)
+	// Avoid first and last point (boundary conditions)
+    for(int j = 1; j < yn - 1; j++)
+		for(int i = 1; i < xn - 1; i++)
 			Im[ind(i,j)] = Im[ind(i,j)] 
-						   + dt/(DX*DX)*(Re[ind(i+1,j)] - 2*Re[ind(i,j)] + Re[ind(i-1,j)])
-						   + dt/(DY*DY)*(Re[ind(i,j+1)] - 2*Re[ind(i,j)] + Re[ind(i,j-1)]);
+						   + dt/(dx*dx)*(Re[ind(i+1,j)] - 2*Re[ind(i,j)] + Re[ind(i-1,j)])
+						   + dt/(dy*dy)*(Re[ind(i,j+1)] - 2*Re[ind(i,j)] + Re[ind(i,j-1)]);
 }
 
-void nonlin(double *Re, double *Im, double dt)
+void nonlin(double *Re, double *Im, double dt, int xn, int yn)
 {                  
 	double Rp, Ip, A2;
-	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-	for(int j = 1; j < YN-1; j++)
-		for(int i = 1; i < XN-1; i++)
+	// Avoid first and last point (boundary conditions)
+	for(int j = 1; j < yn-1; j++)
+		for(int i = 1; i < xn-1; i++)
 		{
 			Rp = Re[ind(i,j)];  Ip = Im[ind(i,j)];
-			A2 = Rp*Rp+Ip*Ip; // |psi|^2
+			A2 = Rp*Rp+Ip*Ip; 
 			
 			Re[ind(i,j)] = Rp*cos((A2-A2*A2)*dt) - Ip*sin((A2-A2*A2)*dt);
 			Im[ind(i,j)] = Rp*sin((A2-A2*A2)*dt) + Ip*cos((A2-A2*A2)*dt);

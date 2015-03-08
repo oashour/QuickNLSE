@@ -12,8 +12,8 @@
 #define TAG2 2                  // Send message left
 
 // Grid Parameters
-#define XN	 1024				// number of spatial ndes
-#define TN	 100000  			// number of temporal nodes
+#define XN	 1024				// Number of spatial ndes
+#define TN	 100000  			// Number of temporal nodes
 #define L	 10.0				// Spatial Period
 #define TT	 10.0               // Max time
 #define DX	 (2*L / XN)			// spatial step size
@@ -116,7 +116,6 @@ int main(int argc, char** argv)
 		if (rank == ROOT)
 			if (i % IRVL == 0)
 				fprintf(fp, "%f, ", MPI_Wtime() -t1);
-
 	}
 	// Wrap up timing file
 	if (rank == ROOT)

@@ -1,10 +1,13 @@
-// Cubic Quintic Nonlinear Schrodinger Equation
-#include <stddef.h>
+/**********************************************************************************
+* Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation         *
+* in (2+1)D	 using explicit FDTD with second order splitting.                     *           *
+* Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+* ********************************************************************************/
 #include "../lib/cu_helpers.h"
 
 // Grid Parameters
-#define XN	256				   		// Number of x-spatial nodes
-#define YN	256						// Number of y-spatial nodes
+#define XN	64				   		// Number of x-spatial nodes
+#define YN	64						// Number of y-spatial nodes
 #define TN	10000					// Number of temporal nodes
 #define LX	50.0f					// x-spatial domain [-LX,LX)
 #define LY	50.0f					// y-spatial domain [-LY,LY)
@@ -19,25 +22,37 @@
 #define  A 		0.6f
 #define  R 		(1.0f/(A*sqrt(1.0f-A*A)))   
 
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
+// Output files
+#define PLOT_F "gpu_fdtds_plot.m"
+#define TIME_F "gpu_fdtds_time.m"
+
 // Index linearization
 #define ind(i,j)  ((i)*XN+(j)) 		// [i  ,j  ] 
+
 // Function prototypes 
-__global__ void Re_lin_kernel(float *Re, float *Im, float dt);
-__global__ void Im_lin_kernel(float *Re, float *Im, float dt);
-__global__ void nonlin_kernel(float *Re, float *Im, float dt);
+__global__ void Re_lin_kernel(float *Re, float *Im, float dt, int xn, int yn, 
+																	float dx, float dy);
+__global__ void Im_lin_kernel(float *Re, float *Im, float dt, int xn, int yn, 
+																	float dx, float dy);
+__global__ void nonlin_kernel(float *Re, float *Im, float dt, int xn, int yn);
 
 int main(void)
 {
-    printf("DX: %f, DT: %f, dt/dx^2: %f\n", DX, DT, DT/(DX*DX));
+    // Timing info
+	cudaEvent_t begin_event, end_event;
+	cudaEventCreate(&begin_event);
+	cudaEventCreate(&end_event);
     
-	// Timing set up
-	cudaEvent_t beginEvent;
-	cudaEvent_t endEvent;
- 
-	cudaEventCreate(&beginEvent);
-	cudaEventCreate(&endEvent);
+	// Timing starts here
+	cudaEventRecord(begin_event, 0);
 	
-    // allocate x, y, R and I on host. Max will be use to store max |psi|
+	// Print basic info about simulation
+	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
+
+	// Allocate host arrays
 	float *h_x 	= (float*)malloc(sizeof(float) * XN);
 	float *h_y 	= (float*)malloc(sizeof(float) * YN);
 	float *h_max 	= (float*)malloc(sizeof(float) * TN);
@@ -46,14 +61,14 @@ int main(void)
 	float *h_Re_0 	= (float*)malloc(sizeof(float) * XN * YN);
     float *h_Im_0	= (float*)malloc(sizeof(float) * XN * YN);   
 
-	// initialize x and y.
+	// Initialize x and y
 	for(int i = 0; i < XN ; i++)
 		h_x[i] = (i-XN/2)*DX;
 		
     for(int i = 0; i < YN ; i++)
 		h_y[i] = (i-YN/2)*DY;
 
-    // Initial Conditions
+    // Initial Conditions on host
     for(int j = 0; j < YN; j++)
 		for(int i = 0; i < XN; i++)
 			{
@@ -64,7 +79,7 @@ int main(void)
 				h_Im_0[ind(i,j)] = h_Im[ind(i,j)];
 			}
 	
-	// Allocate device arrays and copy from host.
+	// Allocate device arrays and copy from host
 	float *d_Re, *d_Im;
 	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(float) * XN*YN));
 	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(float) * XN*YN));
@@ -75,47 +90,61 @@ int main(void)
 	dim3 blocksPerGrid((XN+15)/16, (YN+15)/16, 1);
 	dim3 threadsPerBlock(16, 16, 1);
 
-	// print max |psi| for initial conditions
-	max_psif(d_Re, d_Im, h_max, 0, XN*YN);
-	// Begin timing
-	cudaEventRecord(beginEvent, 0);
-	for (int i = 1; i < TN; i++)
-	{
-		// linear
-		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
-		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
-		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-		// nonlinear
-		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT);
-		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-		// linear
-		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
-		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
-		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-		// find max psi
-		max_psif(d_Re, d_Im, h_max, i, XN*YN);
-	}
-	// End timing
-	cudaEventRecord(endEvent, 0);
-
-    cudaEventSynchronize(endEvent);
- 
-	float timeValue;
-	cudaEventElapsedTime(&timeValue, beginEvent, endEvent);
- 
-	printf("Time elapsed: %f.\n", timeValue);
-
+	// Print timing info to file
+	float time_value;
+	FILE *fp = fopen(TIME_F, "w");
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
+	fprintf(fp, "time = [0, ");
 	
+	// Save max |psi| for printing
+	max_psif(d_Re, d_Im, h_max, 0, XN*YN);
+	
+	// Start time evolution
+	for (int i = 1; i <= TN; i++)
+	{
+		// Solve linear part
+		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
+																	XN, YN, DX, DY);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
+																	XN, YN, DX, DY);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		// Solve nonlinear part
+		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT, XN, YN);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		// Solve linear part
+		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
+																	XN, YN, DX, DY);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
+																	XN, YN, DX, DY);
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		// Save max |psi| for printing
+		max_psif(d_Re, d_Im, h_max, i, XN*YN);
+		// Print time at specific intervals
+		if(i % IRVL == 0)
+		{
+			cudaEventRecord(end_event, 0);
+			cudaEventSynchronize(end_event);
+			cudaEventElapsedTime(&time_value, begin_event, end_event);
+			fprintf(fp, "%f, ", time_value);
+		}
+	}
+	// Wrap up timing file 
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, time/1000, '-*r');\n");
+	fclose(fp);
+
+	// Copy results to device
 	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(float)*XN*YN, 
 															cudaMemcpyDeviceToHost));
 	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(float)*XN*YN, 
 															cudaMemcpyDeviceToHost));
-	// Generate MATLAB file to plot max |psi| and the initial and final pulses
-	m_plot_2df(h_Re_0, h_Im_0, h_Re, h_Im, h_max, LX, LY, XN, YN, TN, "gpu_fdtds.m");
+	
+	// Plot results
+	m_plot_2df(h_Re_0, h_Im_0, h_Re, h_Im, h_max, LX, LY, XN, YN, TN, PLOT_F);
 
-	// wrap up                                                  
+	// Clean up
 	free(h_Re); 
 	free(h_Im); 
 	free(h_Re_0); 
@@ -129,46 +158,46 @@ int main(void)
 	return 0;
 }
 
-__global__ void Re_lin_kernel(float *Re, float *Im, float dt)
+__global__ void Re_lin_kernel(float *Re, float *Im, float dt, int xn, int yn,
+															float dx, float dy)
 {                  
-   // setting up i j
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y; 
     
-   // We're avoiding Boundary Elements (kept at initial value approx = 0)
-   if(i == 0 || j == 0 || i >= XN-1 || j >= YN-1) return;
+   // Avoid first and last point (boundary conditions)
+   if(i == 0 || j == 0 || i >= xn-1 || j >= yn-1) return;
     
    Re[ind(i,j)] = Re[ind(i,j)] 
-					- dt/(DX*DX)*(Im[ind(i+1,j)] - 2*Im[ind(i,j)] + Im[ind(i-1,j)])
-					- dt/(DY*DY)*(Im[ind(i,j+1)] - 2*Im[ind(i,j)] + Im[ind(i,j-1)]);
+					- dt/(dx*dx)*(Im[ind(i+1,j)] - 2*Im[ind(i,j)] + Im[ind(i-1,j)])
+					- dt/(dy*dy)*(Im[ind(i,j+1)] - 2*Im[ind(i,j)] + Im[ind(i,j-1)]);
 }
 
-__global__ void Im_lin_kernel(float *Re, float *Im, float dt)
+__global__ void Im_lin_kernel(float *Re, float *Im, float dt, int xn, int yn,
+															float dx, float dy)
 {                  
-	// setting up i j
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y; 
     
-    // We're avoiding Boundary Elements (kept at initial value approx = 0);
-	if(i == 0 || j == 0 || i >= XN-1 || j >= YN-1) return;
+	// Avoid first and last point (boundary conditions)
+	if(i == 0 || j == 0 || i >= xn-1 || j >= yn-1) return;
 	
 	Im[ind(i,j)] = Im[ind(i,j)] 
-					+ dt/(DX*DX)*(Re[ind(i+1,j)] - 2*Re[ind(i,j)] + Re[ind(i-1,j)])
-					+ dt/(DY*DY)*(Re[ind(i,j+1)] - 2*Re[ind(i,j)] + Re[ind(i,j-1)]);
+					+ dt/(dx*dx)*(Re[ind(i+1,j)] - 2*Re[ind(i,j)] + Re[ind(i-1,j)])
+					+ dt/(dy*dy)*(Re[ind(i,j+1)] - 2*Re[ind(i,j)] + Re[ind(i,j-1)]);
 }
 
-__global__ void nonlin_kernel(float *Re, float *Im, float dt)
+__global__ void nonlin_kernel(float *Re, float *Im, float dt, int xn, int yn)
 {                  
-	// setting up i j
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y; 
     
-	// we're avoiding Boundary Elements (kept at initial value approx = 0);
-    if(i == 0 || j == 0 || i >= XN-1 || j >= YN-1) return;
+	// Avoid first and last point (boundary conditions)
+	if(i == 0 || j == 0 || i >= xn-1 || j >= yn-1) return;
 
 	float Rp = Re[ind(i,j)]; float Ip = Im[ind(i,j)];
-	float A2 = Rp*Rp+Ip*Ip; // |psi|^2
+	float A2 = Rp*Rp+Ip*Ip; 
 	
 	Re[ind(i,j)] =	Rp*cos((A2-A2*A2)*dt) - Ip*sin((A2-A2*A2)*dt);
 	Im[ind(i,j)] =	Rp*sin((A2-A2*A2)*dt) + Ip*cos((A2-A2*A2)*dt);
 }
+

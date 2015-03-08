@@ -50,8 +50,7 @@ int main(int argc, char *argv[])
 
     // Create wave number
 	double dkx=2*M_PI/XN/DX;
-	double *kx;
-	kx=(double*)malloc(XN*sizeof(double));
+	double *kx = (double*)malloc(XN*sizeof(double));
 	for(int i = XN/2; i >= 0; i--) 
 		kx[XN/2-i]=(XN/2-i)*dkx;
 	for(int i = XN/2+1; i < XN; i++)
@@ -80,7 +79,7 @@ int main(int argc, char *argv[])
 	{
 		// Solve linear part
 		lin(psi, k2, DT/2, XN);  
-		// Backward tranform
+		// Backward transform
 		fftw_execute(backward);
 		// Normalize the transform
 		normalize(psi, XN);
@@ -99,7 +98,7 @@ int main(int argc, char *argv[])
 	fprintf(fp, "plot(steps, time, '-*r');\n");
 	fclose(fp);
 	
-	// Backward tranform to retreive data
+	// Backward transform to retreive data
 	fftw_execute(backward);
 	// Normalize
 	normalize(psi, XN);

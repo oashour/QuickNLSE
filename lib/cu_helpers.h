@@ -5,10 +5,12 @@
 #include <stdio.h>
 #include <math.h>
 
+#define CUDA_ERROR_CHECKING 1
 
 /********************************************************************************
 *									MACROS										*
 ********************************************************************************/
+#if CUDA_ERROR_CHECKING
 /********************************************************************************
 * Macro Name: 		CUFFT_SAFE_CALL												*
 * Description:		Used to check CUFFT library calls. Just enclose the call in *
@@ -38,6 +40,11 @@
         exit(EXIT_FAILURE);                                                    \
     }                                                                          \
 } while (0)
+#else
+#define CUDAR_SAFE_CALL(call) call
+#define CUFFT_SAFE_CALL(call) call
+
+#endif // CUDA_ERROR_CHECKING
 
 /********************************************************************************
 *						FUNCTION 			PROTOTYPES							*

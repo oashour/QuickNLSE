@@ -102,9 +102,7 @@ int main(int argc, char *argv[])
     double *k2 = (double*)malloc(sizeof(double) * local_ni);
 	
 	for (int i = 0; i < local_ni; i++)
-	{
 		k2[i] = kx[i]*kx[i];
-	}
     
 	// Print timing info to file
 	FILE *fp;
@@ -163,7 +161,7 @@ int main(int argc, char *argv[])
 	if(rank == ROOT)
 	{
 		cm_plot_1d(psi_0, psi_new, L, XN, PLOT_F);
-		fftw_free(psi_new); fftw_free(psi_0); fftw_free(kx);
+		fftw_free(psi_new); fftw_free(psi_0); free(kx_0);
 	}
 
 	// Clean up 
@@ -171,6 +169,7 @@ int main(int argc, char *argv[])
 	fftw_destroy_plan(backward);
 	fftw_free(psi);
 	free(k2);
+	free(kx);
 
     MPI_Finalize();
 

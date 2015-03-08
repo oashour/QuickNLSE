@@ -7,7 +7,7 @@
 #include "../lib/timers.h"
 
 // Grid Parameters
-#define XN	1024				// number of spatial ndes
+#define XN	1024				// number of spatial nodes
 #define TN	100000				// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	fprintf(fp, "time = [0, ");
 	
 	// Start time evolution
-	for (int i = 1; i < TN; i++)
+	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
 		Re_lin(Re, Im, DT*0.5, XN, DX);
