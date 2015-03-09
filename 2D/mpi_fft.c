@@ -2,7 +2,7 @@
 * Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation in      *
 * (2+1)D using symmetric split step Fourier method.								  *		                           		  *
 * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
-* ********************************************************************************/
+**********************************************************************************/
 #include "../lib/helpers.h"
 #include <fftw3.h>
 #include <fftw3-mpi.h>
@@ -70,6 +70,8 @@ int main(int argc, char **argv)
 	fftw_complex *psi = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * alloc_local);
 	double *kx = (double*)malloc(sizeof(double) * local_ni); 
 	double *ky = (double*)malloc(sizeof(double) * YN); 
+    double *k2 = (double*)malloc(sizeof(double) * local_ni*YN);
+    double *max = (double*)calloc(TN, sizeof(double));
 	fftw_complex *psi_new, *psi_0;
 	double *kx_0;
 	
@@ -124,9 +126,6 @@ int main(int argc, char **argv)
 		ky[i]=(i-YN)*dky; 
 	
 	// Local initial conditions   
-    double *k2 = (double*)malloc(sizeof(double) * local_ni*YN);
-    double *max = (double*)calloc(TN, sizeof(double));
-	
 	for(int i = 0; i < local_ni; i++)
 		for(int j = 0; j < YN; j++)
 			k2[ind(i,j)] = kx[i]*kx[i] + ky[j]*ky[j];
@@ -210,7 +209,8 @@ void nonlin(fftw_complex *psi, double dt, ptrdiff_t local_ni, int yn, int rank, 
 		for(int j = 0; j < yn; j++)
 		{
 			// Avoid boundary conditions (needs fixing)
-			// if(((i == 0) && (rank == ROOT)) || ((i == end-1) && (rank == p-1)))	continue;
+			// if(((i == 0) && (rank == ROOT)) || ((i == end-1) && (rank == p-1)))	
+				// continue;
     		psi2 = cabs(psi[ind(i,j)])*cabs(psi[ind(i,j)]);
 			psi[ind(i,j)] = cexp(I * (psi2-psi2*psi2) * dt) * psi[ind(i,j)];
 		}

@@ -1,15 +1,19 @@
- // Cubic Quintic Nonlinear Schrodinger Equation
+/**********************************************************************************
+* Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation         *
+* in (2+1)D	 using explicit FDTD with second order splitting.                     *           *
+* Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+* ********************************************************************************/
 #include "../lib/cu_helpers.h"
 
 // Grid Parameters
-#define XN	64						// Number of x-spatial nodes        
-#define YN	64						// Number of y-spatial nodes          
-#define ZN  64						// Number of z-spatial nodes         
+#define XN	32						// Number of x-spatial nodes        
+#define YN	32						// Number of y-spatial nodes          
+#define ZN  32						// Number of z-spatial nodes         
 #define TN	1000					// Number of temporal nodes          
-#define LX	100.0					// x-spatial domain [-LX,LX)         
-#define LY	100.0					// y-spatial domain [-LY,LY)         
-#define LZ	100.0					// z-spatial domain [-LZ,LZ)         
-#define TT	100.0            		// Max time                          
+#define LX	50.0					// x-spatial domain [-LX,LX)         
+#define LY	50.0					// y-spatial domain [-LY,LY)         
+#define LZ	50.0					// z-spatial domain [-LZ,LZ)         
+#define TT	10.0            		// Max time                          
 #define DX	(2*LX / XN)				// x-spatial step size               
 #define DY	(2*LY / YN)				// y-spatial step size
 #define DZ	(2*LZ / ZN)				// z-spatial step size
@@ -21,6 +25,14 @@
 #define  A 		0.6
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
                                                                           
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
+// Output files
+#define VTK_0  "gpu_fdtd_0.vtk"
+#define VTK_1  "gpu_fdtd_1.vtk"
+#define TIME_F "gpu_fdtd_time.m"
+
 // Index linearization                                                    
 // Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  
 #define ind(i,j,k) ((i) + XN * ((j) + YN * (k)))		                     
@@ -38,37 +50,48 @@
 //					\_\_\_\_\_\_\_\H             
 // 						  XN                          
 
+
 // Function prototypes 
-__global__ void Re_lin_kernel(double *Re, double *Im, double dt);
-__global__ void Im_lin_kernel(double *Re, double *Im, double dt);
-__global__ void nonlin_kernel(double *Re, double *Im, double dt);
+__global__ void Re_lin_kernel(double *Re, double *Im, double dt, int xn, int yn, int zn,
+														double dx, double dy, double dz);
+__global__ void Im_lin_kernel(double *Re, double *Im, double dt, int xn, int yn, int zn,
+														double dx, double dy, double dz);
+__global__ void nonlin_kernel(double *Re, double *Im, double dt, int xn, int yn, int zn);
 
 int main(void)
 {
-    printf("DX: %f, DT: %f, dt/dx^2: %f\n", DX, DT, DT/(DX*DX));
+    // Timing info
+	cudaEvent_t begin_event, end_event;
+	cudaEventCreate(&begin_event);
+	cudaEventCreate(&end_event);
+    
+	// Timing starts here
+	cudaEventRecord(begin_event, 0);
 	
-    // Allocate x, y, Re and Im on host. Max will be use to store max |psi|
-	// Re_0 and Im_0 will keep a copy of initial pulse for printing
+	// Print basic info about simulation
+	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
+
+	// Allocate host arrays
 	double *h_x = (double*)malloc(sizeof(double) * XN);
 	double *h_y = (double*)malloc(sizeof(double) * YN);
 	double *h_z = (double*)malloc(sizeof(double) * YN);
-	double *h_max = (double*)malloc(sizeof(double) * TN);
-	double *h_Re = (double*)malloc(sizeof(double) * XN * YN * ZN);
-    double *h_Im = (double*)malloc(sizeof(double) * XN * YN * ZN);   
-	double *h_Re_0 = (double*)malloc(sizeof(double) * XN * YN * ZN);
-    double *h_Im_0 = (double*)malloc(sizeof(double) * XN * YN * ZN);   
+	double *h_max = (double*)calloc(TN, sizeof(double));
+	double *h_Re = (double*)malloc(sizeof(double) * XN*YN*ZN);
+    double *h_Im = (double*)malloc(sizeof(double) * XN*YN*ZN);   
+	double *h_Re_0 = (double*)malloc(sizeof(double) * XN*YN*ZN);
+    double *h_Im_0 = (double*)malloc(sizeof(double) * XN*YN*ZN);   
 	
-	// initialize x and y.
+	// Initialize x, y and z
 	for(int i = 0; i < XN ; i++)
 		h_x[i] = (i-XN/2)*DX;
 		
     for(int i = 0; i < YN ; i++)
 		h_y[i] = (i-YN/2)*DY;
 
-    for(int i = 0; i < YN ; i++)
+    for(int i = 0; i < ZN ; i++)
 		h_z[i] = (i-ZN/2)*DZ; 
     
-	// Initial Conditions
+	// Initial Conditions on host
     for(int k = 0; k < ZN; k++)
 		for(int j = 0; j < YN; j++)
 	   		for(int i = 0; i < XN; i++)
@@ -80,7 +103,7 @@ int main(void)
 				h_Im_0[ind(i,j,k)] = h_Im[ind(i,j,k)];
 			}
 	
-	// Allocate device arrays and copy from host.
+	// Allocate device arrays and copy from host
 	double *d_Re, *d_Im;
 	CUDAR_SAFE_CALL(cudaMalloc(&d_Re, sizeof(double) * XN*YN*ZN));
 	CUDAR_SAFE_CALL(cudaMalloc(&d_Im, sizeof(double) * XN*YN*ZN));
@@ -92,48 +115,76 @@ int main(void)
 	// Initialize the grid
 	dim3 blocksPerGrid((XN+7)/8, (YN+7)/8, (ZN+7)/8);
 	dim3 threadsPerBlock(8, 8, 8);
-	// Begin timing
+	
+	// Print timing info to file
+	float time_value;
+	FILE *fp = fopen(TIME_F, "w");
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
+	fprintf(fp, "time = [0, ");
+	
+	// Save max |psi| for printing
+	#if MAX_PSI_CHECKING
+	max_psi(d_Re, d_Im, h_max, 0, XN*YN*ZN);
+	#endif // MAX_PSI_CHECKING
+	// Start time evolution
 	for (int i = 1; i < TN; i++)
 	{
-		// linear
-		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+		// Solve linear part
+		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, YN, ZN,
+																			  DX, DY, DZ);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+		#endif // CUDAR_ERROR_CHECKING
+		Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, YN, ZN,
+																			  DX, DY, DZ);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-		// nonlinear
-		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT);
+        #endif // CUDAR_ERROR_CHECKING
+		// Solve nonlinear part
+		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT, XN, YN, ZN);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-		// linear
-		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+        #endif // CUDAR_ERROR_CHECKING
+		// Solve linear part
+		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, YN, ZN,
+																			  DX, DY, DZ);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
-        Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5);
+        #endif // CUDAR_ERROR_CHECKING
+		Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, YN, ZN,
+																			  DX, DY, DZ);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
+		// Save max |psi| for printing
+		#if MAX_PSI_CHECKING
+		max_psi(d_Re, d_Im, h_max, i, XN*YN*ZN);
+		#endif // MAX_PSI_CHECKING
+		// Print time at specific intervals
+		if(i % IRVL == 0)
+		{
+			cudaEventRecord(end_event, 0);
+			cudaEventSynchronize(end_event);
+			cudaEventElapsedTime(&time_value, begin_event, end_event);
+			fprintf(fp, "%f, ", time_value);
+		}
 	}
+	// Wrap up timing file 
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, time/1000, '-*r');\n");
+	fclose(fp);
 
-	// Allocate device arrays and copy from host.
+	// Copy results to device
 	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(double)*XN*YN*ZN, 
 															cudaMemcpyDeviceToHost));
 	CUDAR_SAFE_CALL(cudaMemcpy(h_Im, d_Im, sizeof(double)*XN*YN*ZN, 
 															cudaMemcpyDeviceToHost));
-
-	double *h_psi2 = (double*)malloc(sizeof(double)*XN*YN*ZN);
-    double *h_psi2_0 = (double*)malloc(sizeof(double)*XN*YN*ZN);
+    
+	// Plot results
+	vtk_3d(h_x, h_y, h_z, h_Re, h_Im, XN, YN, ZN, VTK_1);
+	vtk_3d(h_x, h_y, h_z, h_Re_0, h_Im_0, XN, YN, ZN, VTK_0);
 	
-	for(int k = 0; k < ZN; k++)
-		for(int j = 0; j < YN; j++)
-	   		for(int i = 0; i < XN; i++)
-			{
-				h_psi2[ind(i,j,k)] = sqrt(h_Re[ind(i,j,k)]*h_Re[ind(i,j,k)] +
-									   h_Im[ind(i,j,k)]*h_Im[ind(i,j,k)]);
-				h_psi2_0[ind(i,j,k)] = sqrt(h_Re_0[ind(i,j,k)]*h_Re_0[ind(i,j,k)] +
-									   h_Im_0[ind(i,j,k)]*h_Im_0[ind(i,j,k)]);
-            }
-	
-	// Generate MATLAB file to plot max |psi| and the initial and final pulses
-	vtk_3d(h_x, h_y, h_z, h_psi2, XN, YN, ZN, "test_fdtd1.vtk");
-	vtk_3d(h_x, h_y, h_z, h_psi2_0, XN, YN, ZN, "test_fdtd0.vtk");
-	
-	// wrap up                                                  
+	// Clean up                                                  
 	free(h_Re); 
 	free(h_Im); 
 	free(h_Re_0); 
@@ -142,31 +193,30 @@ int main(void)
 	free(h_y);
 	free(h_z);
 	free(h_max);
-	free(h_psi2);
-	free(h_psi2_0);
-	cudaFree(d_Re); 
-	cudaFree(d_Im); 
+	CUDAR_SAFE_CALL(cudaFree(d_Re)); 
+	CUDAR_SAFE_CALL(cudaFree(d_Im)); 
 	
 	return 0;
 }
 
-__global__ void Re_lin_kernel(double *Re, double *Im, double dt)
+__global__ void Re_lin_kernel(double *Re, double *Im, double dt, int xn, int yn, int zn,
+														double dx, double dy, double dz)
 {                  
-   	// setting up i j
    	int i = threadIdx.x + blockIdx.x * blockDim.x;
    	int j = threadIdx.y + blockIdx.y * blockDim.y; 
     int k = threadIdx.z + blockIdx.z * blockDim.z;
     
-   	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-   	if(i == 0 || j == 0 || k == 0 || i >= XN-1 || j >= YN-1 || k >= ZN-1) return;
+    // Avoid first and last point (boundary conditions)
+    if(i == 0 || j == 0 || k == 0 || i >= xn-1 || j >= yn-1 || k >= zn-1) return;
     
 	Re[ind(i,j,k)] = Re[ind(i,j,k)] 
-			- dt/(DX*DX)*(Im[ind(i+1,j,k)] - 2*Im[ind(i,j,k)] + Im[ind(i-1,j,k)])
-			- dt/(DY*DY)*(Im[ind(i,j+1,k)] - 2*Im[ind(i,j,k)] + Im[ind(i,j-1,k)])
-			- dt/(DZ*DZ)*(Im[ind(i,j,k+1)] - 2*Im[ind(i,j,k)] + Im[ind(i,j,k-1)]);
+			- dt/(dx*dx)*(Im[ind(i+1,j,k)] - 2*Im[ind(i,j,k)] + Im[ind(i-1,j,k)])
+			- dt/(dy*dy)*(Im[ind(i,j+1,k)] - 2*Im[ind(i,j,k)] + Im[ind(i,j-1,k)])
+			- dt/(dz*dz)*(Im[ind(i,j,k+1)] - 2*Im[ind(i,j,k)] + Im[ind(i,j,k-1)]);
 }
 
-__global__ void Im_lin_kernel(double *Re, double *Im, double dt)
+__global__ void Im_lin_kernel(double *Re, double *Im, double dt, int xn, int yn, int zn,
+														double dx, double dy, double dz)
 {                  
 	// setting up i j
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -174,22 +224,22 @@ __global__ void Im_lin_kernel(double *Re, double *Im, double dt)
     int k = threadIdx.z + blockIdx.z * blockDim.z;
 
    	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-   	if(i == 0 || j == 0 || k == 0 || i >= XN-1 || j >= YN-1 || k >= ZN-1) return;
+   	if(i == 0 || j == 0 || k == 0 || i >= xn-1 || j >= yn-1 || k >= zn-1) return;
    	
    	Im[ind(i,j,k)] = Im[ind(i,j,k)] 
-   			+ dt/(DX*DX)*(Re[ind(i+1,j,k)] - 2*Re[ind(i,j,k)] + Re[ind(i-1,j,k)])
-  			+ dt/(DY*DY)*(Re[ind(i,j+1,k)] - 2*Re[ind(i,j,k)] + Re[ind(i,j-1,k)])
-   			+ dt/(DZ*DZ)*(Re[ind(i,j,k+1)] - 2*Re[ind(i,j,k)] + Re[ind(i,j,k-1)]);
+   			+ dt/(dx*dx)*(Re[ind(i+1,j,k)] - 2*Re[ind(i,j,k)] + Re[ind(i-1,j,k)])
+  			+ dt/(dy*dy)*(Re[ind(i,j+1,k)] - 2*Re[ind(i,j,k)] + Re[ind(i,j-1,k)])
+   			+ dt/(dz*dz)*(Re[ind(i,j,k+1)] - 2*Re[ind(i,j,k)] + Re[ind(i,j,k-1)]);
 }
 
-__global__ void nonlin_kernel(double *Re, double *Im, double dt)
+__global__ void nonlin_kernel(double *Re, double *Im, double dt, int xn, int yn, int zn)
 {                  
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
    	int j = threadIdx.y + blockIdx.y * blockDim.y; 
     int k = threadIdx.z + blockIdx.z * blockDim.z;
 
    	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-   	if(i == 0 || j == 0 || k == 0 || i >= XN-1 || j >= YN-1 || k >= ZN-1) return;
+   	if(i == 0 || j == 0 || k == 0 || i >= xn-1 || j >= yn-1 || k >= zn-1) return;
    	
 	double Rp, Ip, A2;
 	

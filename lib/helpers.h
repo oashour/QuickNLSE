@@ -6,11 +6,17 @@
 #include <math.h>
 #include <stdio.h>
 #include <stddef.h>
+
+
+// Index flattening macro 
+// Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  
+#define INDEX_3D(i,j,k,xn,yn,zn) ((i) + xn * ((j) + zn * (k)))		                     
+
 /********************************************************************************
-* Function Name: 	m_plot_1d												*
+* Function Name: 	m_plot_1d								   		 			*
 * Description:		This takes in a 1D complex function divided into real and	*
-					Imaginary arrays and plots both final and initial pulse		*
-					On the same graph.											*
+*					Imaginary arrays and plots both final and initial pulse		*
+*					On the same graph.											*
 * Parameters:		--> R_0: array for initial real part of function.			*
 * 					--> I_0: array for final imaginary part of function.		*
 * 					--> R: array for final real part of function.				*
@@ -86,6 +92,22 @@ void cm_plot_2d(complex double *psi_0, complex double *psi, double *max,
 int max_index(double *arr, int size);
 
 /********************************************************************************
+* Function Name: 	vtk_3dc		 												*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: double array for 1st dimension						*
+* 					--> y: double array for 2nd dimension						*
+* 					--> z: double array for 3rd dimension						*
+* 					--> f: double array for 3D function. This is a 3D array 	*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3dc(double *x, double *y, double *z, double complex *psi,
+				int xn,	int yn, int zn, char *filename);
+/********************************************************************************
 * Function Name: 	vtk_3d 		 												*
 * Description:		This takes in a 3D function and x,y,z arrays and prints an	*
 *					ASCII VTK file for the dataset.								*
@@ -99,7 +121,7 @@ int max_index(double *arr, int size);
 *					--> nz: size of z dimension									*
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
-void vtk_3d(double *x, double *y, double *z, double *f, 
+void vtk_3d(double *x, double *y, double *z, double *Re, double *Im,
 				int xn,	int yn, int zn, char *filename);
 
 /********************************************************************************

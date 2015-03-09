@@ -1,8 +1,10 @@
- // Cubic Quintic Nonlinear Schrodinger Equation
-#include <sys/time.h>
-#include <stddef.h>
+/**********************************************************************************
+* Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation in      *
+* (3+1)D using explicit FDTD with second order splitting.                         *   
+* Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
+**********************************************************************************/
 #include "../lib/helpers.h"
-#include <fftw3.h>
+#include "../lib/timers.h"
 
 #define M_PI 3.14159265358979323846264338327
 
@@ -20,13 +22,21 @@
 #define DZ	(2*LZ / ZN)				// z-spatial step size
 #define DT	(TT / TN)    			// temporal step size
 
-// Gaussian Parameters                                     
+// Gaussian parameters                                     
 #define  A_S 	(3.0/sqrt(8.0))
 #define  R_S 	(sqrt(32.0/9.0))
 #define  A 		0.6
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
                                                                           
-// Index linearization                                                    
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
+
+// Output files
+#define VTK_0  "cpu_fdtd_0.vtk"
+#define VTK_1  "cpu_fdtd_1.vtk"
+#define TIME_F "cpu_fdtd_time.m"
+
+// Index flattening macro 
 // Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  
 #define ind(i,j,k) ((i) + XN * ((j) + YN * (k)))		                     
 //		   		 ____WIDTH____  
@@ -44,16 +54,21 @@
 // 						  XN                          
 
 // Function prototypes 
-void Re_lin(double *Re, double *Im, double dt);
-void Im_lin(double *Re, double *Im, double dt);
-void nonlin(double *Re, double *Im, double dt);
+void Re_lin(double *Re, double *Im, double dt, int xn, int yn, int zn,
+													double dx, double dy, double dz);
+void Im_lin(double *Re, double *Im, double dt, int xn, int yn, int zn,             
+												 	double dx, double dy, double dz);
+void nonlin(double *Re, double *Im, double dt, int xn, int yn, int zn);  
 
 int main(void)
 {
-    printf("DX: %f, DT: %f, dt/dx^2: %f\n", DX, DT, DT/(DX*DX));
+	// Timing starts here
+	double t1 = get_cpu_time();
+    
+	// Print basic info about simulation
+	printf("XN: %d, DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 	
-    // Allocate x, y, Re and Im on host. Max will be use to store max |psi|
-	// Re_0 and Im_0 will keep a copy of initial pulse for printing
+	// Allocate the arrays
 	double *x = (double*)malloc(sizeof(double) * XN);
 	double *y = (double*)malloc(sizeof(double) * YN);
 	double *z = (double*)malloc(sizeof(double) * YN);
@@ -63,20 +78,20 @@ int main(void)
 	double *Re_0 = (double*)malloc(sizeof(double) * XN * YN * ZN);
     double *Im_0 = (double*)malloc(sizeof(double) * XN * YN * ZN);   
 	
-	// initialize x and y.
+	// Initialize x, y and z 
 	for(int i = 0; i < XN ; i++)
 		x[i] = (i-XN/2)*DX;
 		
     for(int i = 0; i < YN ; i++)
 		y[i] = (i-YN/2)*DY;
 
-    for(int i = 0; i < YN ; i++)
+    for(int i = 0; i < ZN ; i++)
 		z[i] = (i-ZN/2)*DZ; 
     
-	// Initial Conditions
-    for(int k = 0; k < ZN; k++)
+	// Initial conditions
+	for(int i = 0; i < XN; i++)
 		for(int j = 0; j < YN; j++)
-	   		for(int i = 0; i < XN; i++)
+			for(int k = 0; k < ZN; k++)
 			{
 				Re[ind(i,j,k)] = A_S*A*exp(-(x[i]*x[i]+y[j]*y[j]+z[k]*z[k])
 																/(2*R*R*R_S*R_S)); 
@@ -85,86 +100,89 @@ int main(void)
 				Im_0[ind(i,j,k)] = Im[ind(i,j,k)];
 			}
 	
-	// print max |psi| for initial conditions
+	// Print timing info to file
+	FILE *fp = fopen(TIME_F, "w");
+	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
+	fprintf(fp, "time = [0, ");
+	
+	// Save max |psi| for printing
 	max_psi(Re, Im, max, 0, XN*YN*ZN);
-	// Begin timing
-	for (int i = 1; i < TN; i++)
+	
+	// Start time evolution
+	for (int i = 1; i <= TN; i++)
 	{
-		// linear
-		Re_lin(Re, Im, DT*0.5);
-        Im_lin(Re, Im, DT*0.5);
-		// nonlinear
-		nonlin(Re, Im, DT);
-		// linear
-		Re_lin(Re, Im, DT*0.5);
-        Im_lin(Re, Im, DT*0.5);
-		// find max psi
+		// Solve linear part
+		Re_lin(Re, Im, DT*0.5, XN, YN, ZN, DX, DY, DZ);
+		Im_lin(Re, Im, DT*0.5, XN, YN, ZN, DX, DY, DZ);
+		// Solve nonlinear part
+		nonlin(Re, Im, DT*0.5, XN, YN, ZN);
+		// Solve linear part
+		Re_lin(Re, Im, DT*0.5, XN, YN, ZN, DX, DY, DZ);
+		Im_lin(Re, Im, DT*0.5, XN, YN, ZN, DX, DY, DZ);
+		// Save max |psi| for printing
 		max_psi(Re, Im, max, i, XN*YN*ZN);
+		// Print time at specific intervals
+		if(i % IRVL == 0)
+			fprintf(fp, "%f, ", get_cpu_time()-t1);
 	}
-
-    double *psi2 = (double*)malloc(sizeof(double)*XN*YN*ZN);
-    double *psi2_0 = (double*)malloc(sizeof(double)*XN*YN*ZN);
+	// Wrap up timing file
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, time, '-*r');\n");
+	fclose(fp);
+    
+	// Plot results
+	vtk_3d(x, y, z, Re_0, Im_0, XN, YN, ZN, VTK_0);
+	vtk_3d(x, y, z, Re, Im, XN, YN, ZN, VTK_1);
 	
-	for(int k = 0; k < ZN; k++)
-		for(int j = 0; j < YN; j++)
-	   		for(int i = 0; i < XN; i++)
-			{
-				psi2[ind(i,j,k)] = sqrt(Re[ind(i,j,k)]*Re[ind(i,j,k)] +
-									   Im[ind(i,j,k)]*Im[ind(i,j,k)]);
-				psi2_0[ind(i,j,k)] = sqrt(Re_0[ind(i,j,k)]*Re_0[ind(i,j,k)] +
-									   Im_0[ind(i,j,k)]*Im_0[ind(i,j,k)]);
-            }
-	// Generate MATLAB file to plot max |psi| and the initial and final pulses
-	vtk_3d(x, y, z, psi2, XN, YN, ZN, "test1.vtk");
-	vtk_3d(x, y, z, psi2_0, XN, YN, ZN, "test0.vtk");
-	
-	// wrap up                                                  
-	free(Re); 
+	// Clean up
+	free(Re);
 	free(Im); 
 	free(Re_0); 
 	free(Im_0); 
 	free(x); 
 	free(y);
+	free(z);
 	free(max);
-	free(psi2);
 
 	return 0;
 }
 
-void Re_lin(double *Re, double *Im, double dt)
+void Re_lin(double *Re, double *Im, double dt, int xn, int yn, int zn,
+														double dx, double dy, double dz)
 {                  
-	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int k = 1; k < ZN - 1; k++)
-    	for(int j = 1; j < YN - 1; j++)
-			for(int i = 1; i < XN - 1; i++)
+	// Avoid first and last point (boundary conditions)
+    for(int k = 1; k < zn - 1; k++)
+    	for(int j = 1; j < yn - 1; j++)
+			for(int i = 1; i < xn - 1; i++)
 				Re[ind(i,j,k)] = Re[ind(i,j,k)] 
-				- dt/(DX*DX)*(Im[ind(i+1,j,k)] - 2*Im[ind(i,j,k)] + Im[ind(i-1,j,k)])
-				- dt/(DY*DY)*(Im[ind(i,j+1,k)] - 2*Im[ind(i,j,k)] + Im[ind(i,j-1,k)])
-				- dt/(DZ*DZ)*(Im[ind(i,j,k+1)] - 2*Im[ind(i,j,k)] + Im[ind(i,j,k-1)]);
+				- dt/(dx*dx)*(Im[ind(i+1,j,k)] - 2*Im[ind(i,j,k)] + Im[ind(i-1,j,k)])
+				- dt/(dy*dy)*(Im[ind(i,j+1,k)] - 2*Im[ind(i,j,k)] + Im[ind(i,j-1,k)])
+				- dt/(dz*dz)*(Im[ind(i,j,k+1)] - 2*Im[ind(i,j,k)] + Im[ind(i,j,k-1)]);
 }
 
-void Im_lin(double *Re, double *Im, double dt)
+void Im_lin(double *Re, double *Im, double dt, int xn, int yn, int zn,
+														double dx, double dy, double dz)
 {                  
-	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int k = 1; k < ZN - 1; k++)
-    	for(int j = 1; j < YN - 1; j++)
-			for(int i = 1; i < XN - 1; i++)
+	// Avoid first and last point (boundary conditions)
+    for(int k = 1; k < zn - 1; k++)
+    	for(int j = 1; j < yn - 1; j++)
+			for(int i = 1; i < xn - 1; i++)
 				Im[ind(i,j,k)] = Im[ind(i,j,k)] 
-				+ dt/(DX*DX)*(Re[ind(i+1,j,k)] - 2*Re[ind(i,j,k)] + Re[ind(i-1,j,k)])
-				+ dt/(DY*DY)*(Re[ind(i,j+1,k)] - 2*Re[ind(i,j,k)] + Re[ind(i,j-1,k)])
-				+ dt/(DZ*DZ)*(Re[ind(i,j,k+1)] - 2*Re[ind(i,j,k)] + Re[ind(i,j,k-1)]);
+				+ dt/(dx*dx)*(Re[ind(i+1,j,k)] - 2*Re[ind(i,j,k)] + Re[ind(i-1,j,k)])
+				+ dt/(dy*dy)*(Re[ind(i,j+1,k)] - 2*Re[ind(i,j,k)] + Re[ind(i,j-1,k)])
+				+ dt/(dz*dz)*(Re[ind(i,j,k+1)] - 2*Re[ind(i,j,k)] + Re[ind(i,j,k-1)]);
 }
 
-void nonlin(double *Re, double *Im, double dt)
+void nonlin(double *Re, double *Im, double dt, int xn, int yn, int zn)
 {                  
 	double Rp, Ip, A2;
-	// We're avoiding Boundary Elements (kept at initial value approx = 0)
-    for(int k = 1; k < ZN - 1; k++)
-    	for(int j = 1; j < YN - 1; j++)
-			for(int i = 1; i < XN - 1; i++)
+	// Avoid first and last point (boundary conditions)
+    for(int k = 1; k < zn - 1; k++)
+    	for(int j = 1; j < yn - 1; j++)
+			for(int i = 1; i < xn - 1; i++)
 			{
 				Rp = Re[ind(i,j,k)];  Ip = Im[ind(i,j,k)];
-				A2 = Rp*Rp+Ip*Ip; // |psi|^2
+				A2 = Rp*Rp+Ip*Ip; 
 				
 				Re[ind(i,j,k)] = Rp*cos((A2-A2*A2)*dt) - Ip*sin((A2-A2*A2)*dt);
 				Im[ind(i,j,k)] = Rp*sin((A2-A2*A2)*dt) + Ip*cos((A2-A2*A2)*dt);

@@ -1,25 +1,25 @@
 /**********************************************************************************
 * Numerical Solution for the Cubic-Quintic Nonlinear Schrodinger Equation in      *
-* (1+1)D using explicit FDTD with second order splitting.                         *    *
+* (3+1)D using explicit FDTD with second order splitting.                         *   
 * Coded by: Omar Ashour, Texas A&M University at Qatar, February 2015.    	      *
-* ********************************************************************************/
+**********************************************************************************/
 #include "../lib/helpers.h"
 #include "../lib/timers.h"
 
 // Grid parameters                                              
-#define XN	64			// Number of X nodes                       ______XN _____
-#define YN	64			// Number of Y nodes                    Y |_|_|_|_|_|_|_|H
+#define XN	64			// Number of x-spatial nodes               _____XN _____
+#define YN	64			// Number of y-spatial nodes            Y |_|_|_|_|_|_|_|H
 #define TN	10000		// number of temporal nodes             N |_|_|_|_|_|_|_|E
-#define LX	50.0		// Maximum X                            O |_|_|_|_|_|_|_|I
-#define LY	50.0		// Maximum Y                            D |_|_|_|_|_|_|_|G
+#define LX	50.0		// x-spatial domain [-LX,LX)            O |_|_|_|_|_|_|_|I
+#define LY	50.0		// y-spatial domain [-LY,LY)            D |_|_|_|_|_|_|_|G
 #define TT	10.0  		// Maximum t                            E |_|_|_|_|_|_|_|H
-#define DX	(2*LX / XN)	// Spacing between X nodes				S |_|_|_|_|_|_|_|T
-#define DY	(2*LY / YN)	// Spacing between Y nodes				       WIDTH
+#define DX	(2*LX / XN)	// Spacing between x nodes				S |_|_|_|_|_|_|_|T
+#define DY	(2*LY / YN)	// Spacing between y nodes				       WIDTH
 #define DT	(TT / TN)   // Spacing between temporal nodes                        
 
-// Gaussian Parameters                                                 
-#define  A_S 	(3.0/sqrt(8.0))     	// A Star
-#define  R_S 	(sqrt(32.0/9.0))    	// R Star
+// Gaussian parameters                                                 
+#define  A_S 	(3.0/sqrt(8.0))     	// A*
+#define  R_S 	(sqrt(32.0/9.0))    	// R*
 #define  A 		0.6                 	// A
 #define  R 		(1.0/(A*sqrt(1.0-A*A))) // R
 
@@ -62,7 +62,7 @@ int main(void)
     for(int i = 0; i < YN ; i++)
 		y[i] = (i-YN/2)*DY;
 
-    // Initial Conditions
+    // Initial conditions
     for(int j = 0; j < YN; j++)
 		for(int i = 0; i < XN; i++)
 			{

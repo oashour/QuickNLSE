@@ -734,7 +734,58 @@ void cm_plot_2df(cuComplex *psi_0, cuComplex *psi, float *max,
 }
 
 /********************************************************************************
-* Function Name: 	vtk_3d														*
+* Function Name: 	vtk_3dcf													*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: float array for 1st dimension						*
+* 					--> y: float array for 2nd dimension						*
+* 					--> z: float array for 3rd dimension						*
+* 					--> f: float array for 3D function. This is a 3D array 		*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3dcf(float *x, float *y, float *z, cuComplex *psi, 
+			    int xn, int yn, int zn, char *filename)
+{
+	float *f = (float*)malloc(sizeof(float)*xn*yn*zn);
+	
+	for(int k = 0; k < zn; k++)
+		for(int j = 0; j < yn; j++)
+	   		for(int i = 0; i < xn; i++)
+				f[INDEX_3D(i,j,k,xn,yn,zn)] = cuCabsf(psi[INDEX_3D(i,j,k,xn,yn,zn)]);
+
+	FILE *fp;
+	fp = fopen(filename, "w");
+	
+	fprintf(fp, "# vtk DataFile Version 3.0\n"
+				"vtk output\n"
+				"ASCII\n"
+				"DATASET STRUCTURED_GRID\n"
+				"DIMENSIONS %d %d %d\n"
+				"POINTS %d float\n", xn, yn, zn, xn*yn*zn);
+	
+	for(int counter = 0, i = 0, j = 0, k = 0; counter < xn * yn * zn; counter++)
+    {
+		fprintf(fp, "%f %f %f\n", x[i], y[j], z[k]);
+
+		if(j == yn-1 && i == xn-1){i = 0; j = 0; k++;}
+		else if(i == xn-1){i = 0; j++;}
+		else i++;
+		
+	}
+	fprintf(fp, "\nPOINT_DATA %d\n", xn * yn * zn);
+	fprintf(fp, "SCALARS |f| float\n");
+	fprintf(fp, "LOOKUP_TABLE default\n");
+	for(int i = 0; i < xn * yn * zn; i++)
+		fprintf(fp, "%f\n", f[i]);
+
+   fclose(fp); free(f); 
+}
+/********************************************************************************
+* Function Name: 	vtk_3dc														*
 * Description:		This takes in a 3D function and x,y,z arrays and prints an	*
 *					ASCII VTK file for the dataset.								*
 * Parameters:		--> x: double array for 1st dimension						*
@@ -747,9 +798,16 @@ void cm_plot_2df(cuComplex *psi_0, cuComplex *psi, float *max,
 *					--> nz: size of z dimension									*
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
-void vtk_3d(double *x, double *y, double *z, double *f, 
+void vtk_3dc(double *x, double *y, double *z, cuDoubleComplex *psi, 
 			    int xn, int yn, int zn, char *filename)
 {
+	double *f = (double*)malloc(sizeof(double)*xn*yn*zn);
+	
+	for(int k = 0; k < zn; k++)
+		for(int j = 0; j < yn; j++)
+	   		for(int i = 0; i < xn; i++)
+				f[INDEX_3D(i,j,k,xn,yn,zn)] = cuCabs(psi[INDEX_3D(i,j,k,xn,yn,zn)]);
+
 	FILE *fp;
 	fp = fopen(filename, "w");
 	
@@ -775,8 +833,120 @@ void vtk_3d(double *x, double *y, double *z, double *f,
 	for(int i = 0; i < xn * yn * zn; i++)
 		fprintf(fp, "%f\n", f[i]);
 
-   fclose(fp); 
+   fclose(fp); free(f); 
 }
+
+/********************************************************************************
+* Function Name: 	vtk_3df														*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: float array for 1st dimension						*
+* 					--> y: float array for 2nd dimension						*
+* 					--> z: float array for 3rd dimension						*
+* 					--> f: float array for 3D function. This is a 3D array 	*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3df(float *x, float *y, float *z, float *Re, float *Im, 
+			    int xn, int yn, int zn, char *filename)
+{
+	float *f = (float*)malloc(sizeof(float)*xn*yn*zn);
+	
+	for(int k = 0; k < zn; k++)
+		for(int j = 0; j < yn; j++)
+	   		for(int i = 0; i < xn; i++)
+			{
+				f[INDEX_3D(i,j,k,xn,yn,zn)] = sqrt(Re[INDEX_3D(i,j,k,xn,yn,zn)]*Re[INDEX_3D(i,j,k,xn,yn,zn)] +
+									   Im[INDEX_3D(i,j,k,xn,yn,zn)]*Im[INDEX_3D(i,j,k,xn,yn,zn)]);
+            }
+
+	FILE *fp;
+	fp = fopen(filename, "w");
+	
+	fprintf(fp, "# vtk DataFile Version 3.0\n"
+				"vtk output\n"
+				"ASCII\n"
+				"DATASET STRUCTURED_GRID\n"
+				"DIMENSIONS %d %d %d\n"
+				"POINTS %d float\n", xn, yn, zn, xn*yn*zn);
+	
+	for(int counter = 0, i = 0, j = 0, k = 0; counter < xn * yn * zn; counter++)
+    {
+		fprintf(fp, "%f %f %f\n", x[i], y[j], z[k]);
+
+		if(j == yn-1 && i == xn-1){i = 0; j = 0; k++;}
+		else if(i == xn-1){i = 0; j++;}
+		else i++;
+		
+	}
+	fprintf(fp, "\nPOINT_DATA %d\n", xn * yn * zn);
+	fprintf(fp, "SCALARS |f| float\n");
+	fprintf(fp, "LOOKUP_TABLE default\n");
+	for(int i = 0; i < xn * yn * zn; i++)
+		fprintf(fp, "%f\n", f[i]);
+
+   fclose(fp); free(f); 
+}
+
+/********************************************************************************
+* Function Name: 	vtk_3d														*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: double array for 1st dimension						*
+* 					--> y: double array for 2nd dimension						*
+* 					--> z: double array for 3rd dimension						*
+* 					--> f: double array for 3D function. This is a 3D array 	*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3d(double *x, double *y, double *z, double *Re, double *Im, 
+			    int xn, int yn, int zn, char *filename)
+{
+	double *f = (double*)malloc(sizeof(double)*xn*yn*zn);
+	
+	for(int k = 0; k < zn; k++)
+		for(int j = 0; j < yn; j++)
+	   		for(int i = 0; i < xn; i++)
+			{
+				f[INDEX_3D(i,j,k,xn,yn,zn)] = sqrt(Re[INDEX_3D(i,j,k,xn,yn,zn)]*Re[INDEX_3D(i,j,k,xn,yn,zn)] +
+									   Im[INDEX_3D(i,j,k,xn,yn,zn)]*Im[INDEX_3D(i,j,k,xn,yn,zn)]);
+            }
+
+	FILE *fp;
+	fp = fopen(filename, "w");
+	
+	fprintf(fp, "# vtk DataFile Version 3.0\n"
+				"vtk output\n"
+				"ASCII\n"
+				"DATASET STRUCTURED_GRID\n"
+				"DIMENSIONS %d %d %d\n"
+				"POINTS %d double\n", xn, yn, zn, xn*yn*zn);
+	
+	for(int counter = 0, i = 0, j = 0, k = 0; counter < xn * yn * zn; counter++)
+    {
+		fprintf(fp, "%f %f %f\n", x[i], y[j], z[k]);
+
+		if(j == yn-1 && i == xn-1){i = 0; j = 0; k++;}
+		else if(i == xn-1){i = 0; j++;}
+		else i++;
+		
+	}
+	fprintf(fp, "\nPOINT_DATA %d\n", xn * yn * zn);
+	fprintf(fp, "SCALARS |f| double\n");
+	fprintf(fp, "LOOKUP_TABLE default\n");
+	for(int i = 0; i < xn * yn * zn; i++)
+		fprintf(fp, "%f\n", f[i]);
+
+   fclose(fp); free(f); 
+}
+
+
 
 /********************************************************************************
 * Function Name: 	max_index													*

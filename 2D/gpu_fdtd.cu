@@ -152,8 +152,8 @@ int main(void)
 	free(h_x); 
 	free(h_y);
 	free(h_max);
-	cudaFree(d_Re); 
-	cudaFree(d_Im); 
+	CUDAR_SAFE_CALL(cudaFree(d_Re)); 
+	CUDAR_SAFE_CALL(cudaFree(d_Im)); 
 	
 	return 0;
 }

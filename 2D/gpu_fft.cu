@@ -23,7 +23,7 @@
 #define  A 		0.6f
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
 
-// Index linearization
+// Index flattening macro
 #define ind(i,j)  (i*XN+j)			// [i  ,j  ] 
 
 // Timing parameters
@@ -122,7 +122,7 @@ int main(void)
 	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_FORWARD));
 	
 	// Start time evolution
-	for (int i = 1; i < TN; i++)
+	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN, YN);  

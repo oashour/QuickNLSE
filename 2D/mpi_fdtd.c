@@ -6,10 +6,6 @@
 #include "../lib/helpers.h"
 #include <mpi.h>
 
-#define ROOT 0
-#define TAG1 1
-#define TAG2 2
-
 // Define message sending tags and MPI root
 #define ROOT 0					// Root process rank
 #define TAG1 1                  // Send message right
@@ -39,7 +35,7 @@
 #define PLOT_F "mpi_fdtd_plot.m"
 #define TIME_F "mpi_fdtd_time.m"
 
-// Index linearization for kernels [x,y] = [x * width + y] 
+// Index linearization [x,y] = [x * width + y] 
 #define ind(i,j)  ((i)*XN+(j))		//[i  ,j  ] 
 
 // Function prototypes
@@ -52,7 +48,7 @@ void syncImRe(int rank, int p, int xn_loc, double *Re, double *Im, int yn, MPI_S
 void syncIm(int rank, int p, int xn_loc, double *Re, double *Im, int yn, MPI_Status *status);
 void syncRe(int rank, int p, int xn_loc, double *Re, double *Im, int yn, MPI_Status *status);
 
-int main(int argc, char** argv)
+int main(int argc, char *argv[])
 {
 
 	// MPI set up
@@ -63,9 +59,6 @@ int main(int argc, char** argv)
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	
-	// Timing starts here
-	double t1 = MPI_Wtime();
-
     // Print basic info about simulation
 	if(rank == ROOT)
 		printf("XN: %d, DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
@@ -91,7 +84,7 @@ int main(int argc, char** argv)
 		Re_0 = (double*)malloc(sizeof(double) * XN*YN);
     	Im_0 = (double*)malloc(sizeof(double) * XN*YN);
 
-		// Initialize x and y.
+		// Initialize x and y
 		for(int i = 0; i < XN; i++)
 			x[i] = (i-XN/2)*DX;
 			
@@ -128,6 +121,9 @@ int main(int argc, char** argv)
 		fprintf(fp, "time = [0, ");
 	}
 
+	// Timing starts here
+	double t1 = MPI_Wtime();
+
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
@@ -148,7 +144,6 @@ int main(int argc, char** argv)
 			if (i % IRVL == 0)
 				fprintf(fp, "%f, ", MPI_Wtime() -t1);
 	}
-	
 	// Wrap up timing file
 	if (rank == ROOT)
 	{

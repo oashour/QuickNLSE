@@ -5,12 +5,20 @@
 #include <stdio.h>
 #include <math.h>
 
-#define CUDA_ERROR_CHECKING 1
+/********************************************************************************
+*							GENERAL PURPOSE MACROS								*
+********************************************************************************/
+#define CUFFT_ERROR_CHECKING 1
+#define CUDAR_ERROR_CHECKING 1
+#define MAX_PSI_CHECKING	 1
+
+// Index flattening macro 
+// Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  
+#define INDEX_3D(i,j,k,xn,yn,zn) ((i) + xn * ((j) + zn * (k)))		                     
 
 /********************************************************************************
 *									MACROS										*
 ********************************************************************************/
-#if CUDA_ERROR_CHECKING
 /********************************************************************************
 * Macro Name: 		CUFFT_SAFE_CALL												*
 * Description:		Used to check CUFFT library calls. Just enclose the call in *
@@ -25,7 +33,7 @@
         exit(EXIT_FAILURE);                                                    \
     }                                                                          \
 } while (0)
-
+#if CUFFT_ERROR_CHECKING
 /********************************************************************************
 * Macro Name: 		CUFFT_SAFE_CALL												*
 * Description:		Used to check CUFFT library calls. Just enclose the call in *
@@ -41,10 +49,8 @@
     }                                                                          \
 } while (0)
 #else
-#define CUDAR_SAFE_CALL(call) call
 #define CUFFT_SAFE_CALL(call) call
-
-#endif // CUDA_ERROR_CHECKING
+#endif // CUFFT_ERROR_CHECKING
 
 /********************************************************************************
 *						FUNCTION 			PROTOTYPES							*
@@ -226,6 +232,56 @@ int max_index(double *arr, int size);
 int max_indexf(float *arr, int size);
 
 /********************************************************************************
+* Function Name: 	vtk_3dc		 												*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: double array for 1st dimension						*
+* 					--> y: double array for 2nd dimension						*
+* 					--> z: double array for 3rd dimension						*
+* 					--> f: double array for 3D function. This is a 3D array 	*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3dcf(float *x, float *y, float *z, cuComplex *psi, 
+				int xn,	int yn, int zn, char *filename);
+
+/********************************************************************************
+* Function Name: 	vtk_3dc		 												*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: double array for 1st dimension						*
+* 					--> y: double array for 2nd dimension						*
+* 					--> z: double array for 3rd dimension						*
+* 					--> f: double array for 3D function. This is a 3D array 	*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3dc(double *x, double *y, double *z, cuDoubleComplex *psi, 
+				int xn,	int yn, int zn, char *filename);
+
+/********************************************************************************
+* Function Name: 	vtk_3df		 												*
+* Description:		This takes in a 3D function and x,y,z arrays and prints an	*
+*					ASCII VTK file for the dataset.								*
+* Parameters:		--> x: double array for 1st dimension						*
+* 					--> y: double array for 2nd dimension						*
+* 					--> z: double array for 3rd dimension						*
+* 					--> f: double array for 3D function. This is a 3D array 	*
+*							squished into one dimension of size nx*ny*nz.		*
+*					--> nx: size of x dimension									*
+*					--> ny: size of y dimension									*
+*					--> nz: size of z dimension									*
+*					--> filename: name of file generated (including .vtk)		*
+********************************************************************************/
+void vtk_3df(float *x, float *y, float *z, float *Re, float *Im, 
+				int xn,	int yn, int zn, char *filename);
+/********************************************************************************
 * Function Name: 	vtk_3d 		 												*
 * Description:		This takes in a 3D function and x,y,z arrays and prints an	*
 *					ASCII VTK file for the dataset.								*
@@ -239,7 +295,7 @@ int max_indexf(float *arr, int size);
 *					--> nz: size of z dimension									*
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
-void vtk_3d(double *x, double *y, double *z, double *f, 
+void vtk_3d(double *x, double *y, double *z, double *Re, double *Im, 
 				int xn,	int yn, int zn, char *filename);
 
 /********************************************************************************

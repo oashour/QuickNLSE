@@ -10,19 +10,19 @@
 #define M_PI 3.14159265358979323846264338327
 
 // Grid parameters                                              
-#define XN	64			// Number of X nodes                       ______XN _____
-#define YN	64			// Number of Y nodes                    Y |_|_|_|_|_|_|_|H
+#define XN	64			// Number of x-spatial nodes               ______XN_____
+#define YN	64			// Number of y-spatial nodes            Y |_|_|_|_|_|_|_|H
 #define TN	10000  		// number of temporal nodes             N |_|_|_|_|_|_|_|E
-#define LX	50.0		// Maximum X                            O |_|_|_|_|_|_|_|I
-#define LY	50.0		// Maximum Y                            D |_|_|_|_|_|_|_|G
+#define LX	50.0		// x-spatial domain [-LX,LX)            O |_|_|_|_|_|_|_|I
+#define LY	50.0		// y-spatial domain [-LY,LY)            D |_|_|_|_|_|_|_|G
 #define TT	10.0  		// Maximum t                            E |_|_|_|_|_|_|_|H
-#define DX	(2*LX / XN)	// Spacing between X nodes				S |_|_|_|_|_|_|_|T
-#define DY	(2*LY / YN)	// Spacing between Y nodes				       WIDTH
-#define DT	(TT / TN)   // Spacing between temporal nodes                        
+#define DX	(2*LX / XN)	// x-spatial step size    				S |_|_|_|_|_|_|_|T
+#define DY	(2*LY / YN)	// y-spatial step size   				       WIDTH
+#define DT	(TT / TN)   // temporal step size                     
 
 // Gaussian Parameters                                                 
-#define  A_S 	(3.0/sqrt(8.0))     	// A Star
-#define  R_S 	(sqrt(32.0/9.0))    	// R Star
+#define  A_S 	(3.0/sqrt(8.0))     	// A*
+#define  R_S 	(sqrt(32.0/9.0))    	// R*
 #define  A 		0.6                 	// A
 #define  R 		(1.0/(A*sqrt(1.0-A*A))) // R
 
@@ -94,8 +94,6 @@ int main(int argc, char *argv[])
 				k2[ind(i,j)] = kx[i]*kx[i] + ky[j]*ky[j];
 			}   
 	
-	// Forward transform
-	fftw_execute(forward);
 	// Print timing info to file
 	FILE *fp = fopen(TIME_F, "w");
 	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
@@ -103,6 +101,9 @@ int main(int argc, char *argv[])
 	
 	// Save max |psi| for printing
 	cmax_psi(psi, max, 0, XN*YN);
+	
+	// Forward transform
+	fftw_execute(forward);
 	
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
@@ -157,7 +158,7 @@ void lin(fftw_complex *psi, double *k2, double dt, int xn, int yn)
 {                  
 	// Avoid first and last point (boundary conditions) (needs fixing)
 	for(int i = 0; i < xn; i++)
-		for(int j = 0; j < xn; j++)
+		for(int j = 0; j < yn; j++)
     		psi[ind(i,j)] = cexp(-I * k2[ind(i,j)] * dt)*psi[ind(i,j)];
 }
 
