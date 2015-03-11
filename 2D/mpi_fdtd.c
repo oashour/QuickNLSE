@@ -14,7 +14,7 @@
 // Grid Parameters
 #define XN	 64					// Number of spatial nodes
 #define YN	 64					// Number of spatial nodes
-#define TN	 100000  			// Number of temporal nodes
+#define TN	 10000  			// Number of temporal nodes
 #define LX	 50.0				// Spatial Period [-LX,LX)
 #define LY	 50.0				// Spatial Period [-LY,LY)
 #define TT	 10.0               // Max time

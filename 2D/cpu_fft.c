@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     double *x           = (double*)malloc(sizeof(double) * XN);
 	double *y           = (double*)malloc(sizeof(double) * YN);
 	double *k2          = (double*)malloc(sizeof(double) * XN * YN);
-	double *max         = (double*)malloc(sizeof(double) * TN);
+	double *max         = (double*)calloc(TN+1, sizeof(double));
 	fftw_complex *psi   = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * XN * YN);
 	fftw_complex *psi_0 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * XN * YN);
 	
@@ -100,7 +100,9 @@ int main(int argc, char *argv[])
 	fprintf(fp, "time = [0, ");
 	
 	// Save max |psi| for printing
+	#if MAX_PSI_CHECKING
 	cmax_psi(psi, max, 0, XN*YN);
+	#endif // MAX_PSI_CHECKING
 	
 	// Forward transform
 	fftw_execute(forward);
@@ -121,7 +123,9 @@ int main(int argc, char *argv[])
 		// Solve linear part
 		lin(psi, k2, DT/2, XN, YN);
 		// Save max |psi| for printing
-		cmax_psi(psi, max, i, XN*YN);
+		#if MAX_PSI_CHECKING
+		cmax_psi(psi, max, 0, XN*YN);
+		#endif // MAX_PSI_CHECKING
 		// Print time at specific intervals
 		if(i % IRVL == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);

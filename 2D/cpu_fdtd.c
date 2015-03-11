@@ -49,7 +49,7 @@ int main(void)
 	// Allocate the arrays
 	double *x    = (double*)malloc(sizeof(double) * XN);
 	double *y    = (double*)malloc(sizeof(double) * YN);
-	double *max  = (double*)malloc(sizeof(double) * (TN + 1));
+	double *max  = (double*)calloc(TN+1, sizeof(double));
 	double *Re   = (double*)malloc(sizeof(double) * XN * YN);
     double *Im   = (double*)malloc(sizeof(double) * XN * YN);   
 	double *Re_0 = (double*)malloc(sizeof(double) * XN * YN);
@@ -78,8 +78,9 @@ int main(void)
 	fprintf(fp, "time = [0, ");
 	
 	// Save max |psi| for printing
+	#if MAX_PSI_CHECKING
 	max_psi(Re, Im, max, 0, XN*YN);
-	
+	#endif // MAX_PSI_CHECKING
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
@@ -92,7 +93,9 @@ int main(void)
 		Re_lin(Re, Im, DT*0.5, XN, YN, DX, DY);
         Im_lin(Re, Im, DT*0.5, XN, YN, DX, DY);
 		// Save max |psi| for later printing
-		max_psi(Re, Im, max, i, XN*YN);
+		#if MAX_PSI_CHECKING
+		max_psi(Re, Im, max, 0, XN*YN);
+		#endif // MAX_PSI_CHECKING
 		// Print time at specific intervals
 		if(i % IRVL == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);

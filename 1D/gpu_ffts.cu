@@ -33,9 +33,6 @@ int main(void)
 	cudaEventCreate(&begin_event);
 	cudaEventCreate(&end_event);
     
-	// Timing starts here
-	cudaEventRecord(begin_event, 0);
-	
 	// Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 	
@@ -89,6 +86,10 @@ int main(void)
 	// Forward transform
 	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_FORWARD));
 	
+	// Timing starts here
+	cudaEventRecord(begin_event, 0);
+	
+	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part

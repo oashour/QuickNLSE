@@ -45,9 +45,6 @@ int main(int argc, char** argv)
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	
-	// Timing starts here
-	double t1 = MPI_Wtime();
-
     // Print basic info about simulation
 	if(rank == ROOT)
 		printf("XN: %d, DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
@@ -95,6 +92,9 @@ int main(int argc, char** argv)
 		fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 		fprintf(fp, "time = [0, ");
 	}
+
+	// Timing starts here
+	double t1 = MPI_Wtime();
 
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)

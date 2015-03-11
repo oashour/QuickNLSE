@@ -8,7 +8,7 @@
 // Grid Parameters
 #define XN	32						// Number of x-spatial nodes        
 #define YN	32						// Number of y-spatial nodes          
-#define ZN  32						// Number of z-spatial nodes         
+#define ZN	32						// Number of z-spatial nodes         
 #define TN	1000					// Number of temporal nodes          
 #define LX	50.0					// x-spatial domain [-LX,LX)         
 #define LY	50.0					// y-spatial domain [-LY,LY)         
@@ -26,7 +26,7 @@
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
                                                                           
 // Timing parameters
-#define IRVL  100				// Timing interval. Take a reading every N iterations.
+#define IRVL	10	// Timing interval. Take a reading every N iterations.
 
 // Output files
 #define VTK_0  "gpu_fdtd_0.vtk"
@@ -75,7 +75,7 @@ int main(void)
 	double *h_x = (double*)malloc(sizeof(double) * XN);
 	double *h_y = (double*)malloc(sizeof(double) * YN);
 	double *h_z = (double*)malloc(sizeof(double) * YN);
-	double *h_max = (double*)calloc(TN, sizeof(double));
+	double *h_max = (double*)calloc(TN+1, sizeof(double));
 	double *h_Re = (double*)malloc(sizeof(double) * XN*YN*ZN);
     double *h_Im = (double*)malloc(sizeof(double) * XN*YN*ZN);   
 	double *h_Re_0 = (double*)malloc(sizeof(double) * XN*YN*ZN);

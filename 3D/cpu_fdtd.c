@@ -12,7 +12,7 @@
 #define XN	32						// Number of x-spatial nodes        
 #define YN	32						// Number of y-spatial nodes          
 #define ZN	32						// Number of z-spatial nodes         
-#define TN	100						// Number of temporal nodes          
+#define TN	1000  					// Number of temporal nodes          
 #define LX	50.0					// x-spatial domain [-LX,LX)         
 #define LY	50.0					// y-spatial domain [-LY,LY)         
 #define LZ	50.0					// z-spatial domain [-LZ,LZ)         
@@ -29,7 +29,7 @@
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
                                                                           
 // Timing parameters
-#define IRVL  100				// Timing interval. Take a reading every N iterations.
+#define IRVL	10				// Timing interval. Take a reading every N iterations.
 
 // Output files
 #define VTK_0  "cpu_fdtd_0.vtk"
@@ -72,7 +72,7 @@ int main(void)
 	double *x = (double*)malloc(sizeof(double) * XN);
 	double *y = (double*)malloc(sizeof(double) * YN);
 	double *z = (double*)malloc(sizeof(double) * YN);
-	double *max = (double*)malloc(sizeof(double) * TN);
+	double *max = (double*)calloc(TN+1, sizeof(double));
 	double *Re = (double*)malloc(sizeof(double) * XN * YN * ZN);
     double *Im = (double*)malloc(sizeof(double) * XN * YN * ZN);   
 	double *Re_0 = (double*)malloc(sizeof(double) * XN * YN * ZN);
@@ -106,8 +106,10 @@ int main(void)
 	fprintf(fp, "time = [0, ");
 	
 	// Save max |psi| for printing
+	#if MAX_PSI_CHECKING
 	max_psi(Re, Im, max, 0, XN*YN*ZN);
-	
+	#endif // MAX_PSI_CHECKING
+
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
@@ -120,7 +122,9 @@ int main(void)
 		Re_lin(Re, Im, DT*0.5, XN, YN, ZN, DX, DY, DZ);
 		Im_lin(Re, Im, DT*0.5, XN, YN, ZN, DX, DY, DZ);
 		// Save max |psi| for printing
-		max_psi(Re, Im, max, i, XN*YN*ZN);
+		#if MAX_PSI_CHECKING
+		max_psi(Re, Im, max, 0, XN*YN*ZN);
+		#endif // MAX_PSI_CHECKING
 		// Print time at specific intervals
 		if(i % IRVL == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);

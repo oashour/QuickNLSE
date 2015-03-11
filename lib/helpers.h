@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stddef.h>
 
+// MAX_PSI_CHECKING
+#define MAX_PSI_CHECKING 0
 
 // Index flattening macro 
 // Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  

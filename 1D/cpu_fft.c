@@ -31,9 +31,6 @@ void normalize(fftw_complex *psi, int size);
 
 int main(int argc, char *argv[])
 {
-	// Timing starts here
-	double t1 = get_cpu_time();
-	
 	// Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 
@@ -73,6 +70,9 @@ int main(int argc, char *argv[])
 	FILE *fp = fopen(TIME_F, "w");
 	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
+	
+	// Timing starts here
+	double t1 = get_cpu_time();
 	
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)

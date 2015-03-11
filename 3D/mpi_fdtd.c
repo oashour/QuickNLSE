@@ -32,7 +32,7 @@
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
                                                                           
 // Timing parameters
-#define IRVL  100				// Timing interval. Take a reading every N iterations.
+#define IRVL	10				// Timing interval. Take a reading every N iterations.
 
 // Output files
 #define VTK_0 "mpi_fdtd_0.vtk"
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 	double t1 = MPI_Wtime();
 	
 	// Start time evolution
-	for (int i = 1; i < TN; i++)
+	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part and sync
 		Re_lin(Re, Im, DT*0.5, xn_loc, YN, ZN, DX, DY, DZ, rank, p);
@@ -177,8 +177,8 @@ int main(int argc, char *argv[])
 		fclose(fp);
 
 		// Prepare receiving arrays for final results
-		Re_new = (double*)malloc(sizeof(double) * XN*YN);
-		Im_new = (double*)malloc(sizeof(double) * XN*YN);
+		Re_new = (double*)malloc(sizeof(double) * XN*YN*ZN);
+		Im_new = (double*)malloc(sizeof(double) * XN*YN*ZN);
 	}
 
 	// Gather results into new array

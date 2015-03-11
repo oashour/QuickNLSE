@@ -45,7 +45,7 @@
 // 						  XN                          
 
 // Timing parameters
-#define IRVL  100				// Timing interval. Take a reading every N iterations.
+#define IRVL	10				// Timing interval. Take a reading every N iterations.
 
 // Output files
 #define VTK_0  "gpu_ffts_0.vtk" 
@@ -75,7 +75,7 @@ int main(void)
 	float *h_kx = (float*)malloc(XN * sizeof(float));
 	float *h_ky = (float*)malloc(YN * sizeof(float));
 	float *h_kz = (float*)malloc(ZN * sizeof(float));
-	float *h_max = (float*)calloc(TN, sizeof(float));
+	float *h_max = (float*)calloc(TN+1, sizeof(float));
 	cufftComplex *h_psi = (cufftComplex*)malloc(
 							sizeof(cufftComplex) * XN * YN * ZN);
 	cufftComplex *h_psi_0 = (cufftComplex*)malloc(

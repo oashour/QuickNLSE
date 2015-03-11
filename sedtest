@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# sed -i 's/CUDAR_SAFE_CALL(cudaPeekAtLastError());/#if CUDAR_ERROR_CHECKING\n\t\tCUDAR_SAFE_CALL(cudaPeekAtLastError());\n\t\t#endif \/\/ CUDAR_ERROR_CHECKING/g' *.cu
+grep -rl 'double \*max' ./ | xargs sed -i 's/double \*max = (double\*)malloc(sizeof(double) \* (TN+1));/double \*max  = (double\*)calloc(TN+1, sizeof(double))/g'  
+exit 

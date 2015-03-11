@@ -30,7 +30,7 @@
 #define  R 		(1.0/(A*sqrt(1.0-A*A)))   
                                                                           
 // Timing parameters
-#define IRVL  100				// Timing interval. Take a reading every N iterations.
+#define IRVL	10				// Timing interval. Take a reading every N iterations.
 
 // Output files
 #define VTK_0  "cpu_fft_0.vtk"
@@ -76,8 +76,8 @@ int main(void)
     double *x = (double*)malloc(sizeof(double) * XN);
 	double *y = (double*)malloc(sizeof(double) * YN);
 	double *z = (double*)malloc(sizeof(double) * ZN);
-	double *k2 = (double*)malloc(sizeof(double) * XN * YN * ZN);
-	double *max = (double*)malloc(sizeof(double) * TN);
+	double *k2 = (double*)malloc(sizeof(double) * XN*YN*ZN);
+	double *max = (double*)calloc(TN+1, sizeof(double));
 	
 	// Create transform plans
 	fftw_plan forward, backward;
@@ -130,7 +130,9 @@ int main(void)
 	fprintf(fp, "time = [0, ");
 	
 	// Save max |psi| for printing
+	#if MAX_PSI_CHECKING
 	cmax_psi(psi, max, 0, XN*YN*ZN);
+	#endif // MAX_PSI_CHECKING
 	
 	// Forward transform
 	fftw_execute(forward);
@@ -151,7 +153,9 @@ int main(void)
 		// Solve linear part
 		lin(psi, k2, DT/2, XN, YN, ZN);  
 		// Save max |psi| for printing
-		cmax_psi(psi, max, i, XN*YN*ZN);
+		#if MAX_PSI_CHECKING
+		cmax_psi(psi, max, 0, XN*YN*ZN);
+		#endif // MAX_PSI_CHECKING
 		// Print tiem at specific intervals
 		if(i % IRVL == 0)
 			fprintf(fp, "%f, ", get_cpu_time()-t1);

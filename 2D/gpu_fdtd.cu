@@ -55,7 +55,7 @@ int main(void)
 	// Allocate host arrays
 	double *h_x 	= (double*)malloc(sizeof(double) * XN);
 	double *h_y 	= (double*)malloc(sizeof(double) * YN);
-	double *h_max 	= (double*)malloc(sizeof(double) * TN);
+	double *h_max 	= (double*)calloc((TN+1), sizeof(double));
 	double *h_Re 	= (double*)malloc(sizeof(double) * XN * YN);
     double *h_Im	= (double*)malloc(sizeof(double) * XN * YN);   
 	double *h_Re_0 	= (double*)malloc(sizeof(double) * XN * YN);
@@ -97,30 +97,44 @@ int main(void)
 	fprintf(fp, "time = [0, ");
 	
 	// Save max |psi| for printing
+	#if MAX_PSI_CHECKING
 	max_psi(d_Re, d_Im, h_max, 0, XN*YN);
-	
+	#endif // MAX_PSI_CHECKING
+
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
 		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
 																	XN, YN, DX, DY);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
         Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
 																	XN, YN, DX, DY);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Solve nonlinear part
 		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT, XN, YN);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Solve linear part
 		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
 																	XN, YN, DX, DY);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
         Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, 
 																	XN, YN, DX, DY);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Save max |psi| for printing
-		max_psi(d_Re, d_Im, h_max, i, XN*YN);
+		#if MAX_PSI_CHECKING
+		max_psi(d_Re, d_Im, h_max, 0, XN*YN);
+		#endif // MAX_PSI_CHECKING
 		// Print time at specific intervals
 		if(i % IRVL == 0)
 		{

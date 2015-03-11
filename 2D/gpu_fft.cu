@@ -7,9 +7,9 @@
 #include <cufft.h>
 
 // Grid Parameters
-#define XN	128				   		// Number of x-spatial nodes
-#define YN	128						// Number of y-spatial nodes
-#define TN	1000					// Number of temporal nodes
+#define XN	64				   		// Number of x-spatial nodes
+#define YN	64						// Number of y-spatial nodes
+#define TN	10000					// Number of temporal nodes
 #define LX	50.0					// x-spatial domain [-LX,LX)
 #define LY	50.0					// y-spatial domain [-LY,LY)
 #define TT	10.0            		// Max time
@@ -56,7 +56,7 @@ int main(void)
 	double *h_y = (double*)malloc(sizeof(double) * YN);
 	double *h_kx = (double*)malloc(sizeof(double)*XN);
 	double *h_ky = (double*)malloc(sizeof(double)*YN);
-	double *h_max = (double*)calloc(TN, sizeof(double));
+	double *h_max = (double*)calloc(TN+1, sizeof(double));
 	//double *h_max = (double*)malloc(sizeof(double) * TN);
 	double *h_k2 = (double*)malloc(sizeof(double) * XN * YN);
 	cufftDoubleComplex *h_psi = (cufftDoubleComplex*)
@@ -126,20 +126,28 @@ int main(void)
 	{
 		// Solve linear part
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN, YN);  
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Backward transform
     	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_INVERSE));
 		// Normalize the transform
 		normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN*YN, XN, YN);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Solve nonlinear part
 		nonlin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, DT, XN, YN);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Forward transform
     	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_FORWARD));
 		// Solve linear part
 		lin<<<blocksPerGrid, threadsPerBlock>>>(d_psi, d_k2, DT/2, XN, YN);  
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Print time at specific intervals
 		if(i % IRVL == 0)
 		{
@@ -158,7 +166,9 @@ int main(void)
 	CUFFT_SAFE_CALL(cufftExecZ2Z(plan, d_psi, d_psi, CUFFT_INVERSE));
 	// Normalize the transform
 	normalize<<<blocksPerGrid, threadsPerBlock>>>(d_psi, XN*YN, XN, YN);
-	CUDAR_SAFE_CALL(cudaPeekAtLastError());
+	#if CUDAR_ERROR_CHECKING
+		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 	
 	// Copy results to device
 	CUDAR_SAFE_CALL(cudaMemcpy(h_psi, d_psi, sizeof(cufftDoubleComplex)*XN*YN, cudaMemcpyDeviceToHost));

@@ -36,9 +36,6 @@ int main(void)
 	cudaEventCreate(&begin_event);
 	cudaEventCreate(&end_event);
     
-	// Timing starts here
-	cudaEventRecord(begin_event, 0);
-	
 	// Print basic info about simulation
 	printf("XN: %d. DX: %f, DT: %f, dt/dx^2: %f\n", XN, DX, DT, DT/(DX*DX));
 
@@ -77,22 +74,35 @@ int main(void)
 	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
 	fprintf(fp, "time = [0, ");
 	
+	// Timing starts here
+	cudaEventRecord(begin_event, 0);
+
 	// Start time evolution
 	for (int i = 1; i <= TN; i++)
 	{
 		// Solve linear part
 		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
         Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Solve nonlinear part
 		nonlin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT, XN);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Solve linear part
 		Re_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
         Im_lin_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_Re, d_Im, DT*0.5, XN, DX);
+		#if CUDAR_ERROR_CHECKING
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
+		#endif // CUDAR_ERROR_CHECKING
 		// Print time at specific intervals
 		if(i % IRVL == 0)
 		{
