@@ -1,5 +1,45 @@
 #!/bin/bash
 
+function runx () {
+	
+	# Print info
+	echo "X-running $1"
+	# Figure out file names and stuff
+	execute="`echo $1| cut -d'_' -f 1`"
+	noext="`echo $1|cut -d'.' -f 1`"
+	outfile="$1"
+	mfile="$noext""_time.m"
+
+	# Timing parameters
+	begin=1000
+	no=100
+	delta=1000
+	end=$(expr $begin \* $no)
+	echo -ne "steps = [$begin:$delta:$end);\n"  > $mfile 
+	echo -ne "time = [" >> $mfile
+
+	echo "Output redirected to hell."
+	echo
+	if [[ "$execute" == "mpi" ]]
+	then
+		for ((c=$begin; c<=$end; c+=$delta))
+			{
+				echo "c = $c. Remaining runs: $((no - c/delta))"
+				mpirun -np 4 ./$outfile $c > /dev/null 
+			}
+    else
+		for ((c=$begin; c<=$end; c+=$delta))
+			{
+				echo "c = $c. Remaining runs: $((no - c/delta))"
+				./$outfile $c > /dev/null 
+			}
+	fi
+
+	echo -ne "];\n" >> $mfile
+	echo -ne "plot(steps, time, '-*b');\n" >> $mfile
+	
+	echo
+}
 function concatenate {
 	#plot parameters
 	title=Test
@@ -44,7 +84,7 @@ function concatenate {
 	echo -n "gpu_fdtds_" 	>> $out_f
 	awk 'NR==2' $gpu_fdtds 	>> $out_f
 	# GPU_FFT
-	echo -n "gpu_fft_" 	>> $out_f
+	echo -n "gpu_fft_" 		>> $out_f
 	awk 'NR==2' $gpu_fft 	>> $out_f
 	# GPU_FFTS
 	echo -n "gpu_ffts_" 	>> $out_f
@@ -104,15 +144,16 @@ oflag='false' # optimize or not
 rflag='false' # run or not
 pflag="$NLSE/1D"
 hflag='false'
-
+xflag='false'	#no xruns
 # Get arguments
-while getopts 'c:r:ohp:' flag; do
+while getopts 'c:r:x:ohp:' flag; do
   case "${flag}" in
     c) cflag="${OPTARG}" ;;
     r) rflag="${OPTARG}" ;;
     o) oflag='true' ;;
 	h) hflag='true' ;;
 	p) pflag="${OPTARG}" ;;
+	x) xflag="${OPTARG}" ;;
     *) echo "Unexpected option ${flag}" 
 	   exit $WRONG_FLAG;;
   esac
@@ -120,7 +161,7 @@ done
 
 # change working directory
 cd $pflag
-
+echo "XFLAG IS $xflag"
 if [[ "$oflag" = "true" ]]
 then
 	echo "Turning off error checking and enabling optimizations"
@@ -135,7 +176,7 @@ then
 	rflag=$cflag
 fi
 
-if [[ "$rflag" == "false" && "$cflag" == "false" ]]
+if [[ "$rflag" == "false" && "$cflag" == "false" && "$xflag" == "false" ]]
 then
 	hflag="true"
 	echo "No files to run or compile. See help below."
@@ -247,9 +288,19 @@ case "${rflag}" in
 	cpu)	./cpu_fft.out && echo "Finished running cpu_fft.out"  
 			./cpu_fdtd.out && echo "Finished running cpu_fdtd.out" 
 			;;
+	allx)	runx "cpu_fdtd.out" 
+			runx "cpu_fft.out" 
+			runx "gpu_fdtd.out" 
+			runx "gpu_fdtds.out" 
+			runx "gpu_fft.out" 
+			runx "gpu_ffts.out" 
+			runx "mpi_fdtd.out" 
+			runx "mpi_fft.out"
+			concatenate
+			;;
 	false)  echo "No runs!" ;;
 	*)		rflag="`echo $rflag| cut -d'.' -f 1`.out"
-	        echo "Compiling $rflag."
+	        echo "running $rflag."
 			if [[ -e $rflag ]]
 			then
 				compiler=`echo $rflag| cut -d'_' -f 1`
@@ -272,4 +323,37 @@ case "${rflag}" in
 			;;
 esac
 
+case "${xflag}" in
+	all)	runx "cpu_fdtd.out" 
+			runx "cpu_fft.out" 
+			runx "gpu_fdtd.out" 
+			runx "gpu_fdtds.out" 
+			runx "gpu_fft.out" 
+			runx "gpu_ffts.out" 
+			runx "mpi_fdtd.out" 
+			runx "mpi_fft.out"
+			concatenate
+			;;
+	gpu)	runx "gpu_fdtd.out" 
+			runx "gpu_fdtds.out" 
+			runx "gpu_fft.out" 
+			runx "gpu_ffts.out" 
+			;;
+	mpi)	runx "mpi_fdtd.out" 
+			runx "mpi_fft.out"
+			;;
+	cpu)	runx "cpu_fdtd.out"       
+			runx "cpu_fft.out"        
+			;;
+	false)  echo "No X-runs!" ;;
+	*)		if [[ -e $xflag ]]
+			then
+				runx "$xflag"	               
+			else
+				echo "Error: file not found."
+				echo "Terminating."
+				exit $NO_FILE
+			fi
+			;;
+esac
 exit
