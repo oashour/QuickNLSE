@@ -24,7 +24,7 @@ void normalize(fftw_complex *psi, int size);
 
 // Output files
 #define PLOT_F "cpu_fft_plot.m"
-#define TIME_F "cpu_fft_time.m"
+#define TIME_F argv[2]
 
 int main(int argc, char *argv[])
 {

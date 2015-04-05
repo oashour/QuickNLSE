@@ -17,8 +17,7 @@
 
 // Output files
 #define PLOT_F "cpu_fdtd_plot.m"
-#define TIME_F "cpu_fdtd_time.m"
-
+#define TIME_F argv[2]
 // Function Prototypes
 void Re_lin(double *Re, double *Im, double dt, int xn, double dx);
 void Im_lin(double *Re, double *Im, double dt, int xn, double dx);
@@ -47,7 +46,8 @@ int main(int argc, char *argv[])
 	}
     
 	// Timing starts here
-	double t1 = get_cpu_time();
+	struct timespec time1, time2;
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time1);
 
 	// Start time evolution
 	for (int i = 1; i < TN; i++)
@@ -61,11 +61,11 @@ int main(int argc, char *argv[])
 		Re_lin(Re, Im, DT*0.5, XN, DX);
         Im_lin(Re, Im, DT*0.5, XN, DX);
 	}
-	double t2 = get_cpu_time();
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
 	
 	// Print timing
 	FILE *fp = fopen(TIME_F, "a");
-	fprintf(fp, "%f, ", t2-t1);
+	fprintf(fp, "%f, ", diff(time1,time2).tv_sec + 10e-9*(diff(time1,time2).tv_nsec));
 	fclose(fp);
 
 	// Plot results

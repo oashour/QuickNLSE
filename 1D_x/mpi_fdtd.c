@@ -24,7 +24,7 @@
 
 // Output files
 #define PLOT_F "mpi_fdtd_plot.m"
-#define TIME_F "mpi_fdtd_time.m"
+#define TIME_F argv[2]
 
 // Function Prototypes
 void Re_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p);

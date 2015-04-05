@@ -87,7 +87,7 @@ const char *_cufftGetErrorEnum(cufftResult error);
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im, double l, int xn, 
-					char *filename);
+					const char *filename);
 
 /********************************************************************************
 * Function Name: 	m_plot_1df													*
@@ -103,7 +103,7 @@ void m_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im, double l, int
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_1df(float *Re_0, float *Im_0, float *Re, float *Im, float l, int xn, 
-					char *filename);
+					const char *filename);
 /********************************************************************************
 * Function Name: 	cm_plot_1df													*
 * Description:		This takes in a complex 1D function and plots both initial	*
@@ -115,7 +115,7 @@ void m_plot_1df(float *Re_0, float *Im_0, float *Re, float *Im, float l, int xn,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_1df(cuComplex *psi_0, cuComplex *psi, float l, int xn, 
-					char *filename);
+					const char *filename);
 
 /********************************************************************************
 * Function Name: 	cm_plot_1d													*
@@ -128,7 +128,7 @@ void cm_plot_1df(cuComplex *psi_0, cuComplex *psi, float l, int xn,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_1d(cuDoubleComplex *psi_0, cuDoubleComplex *psi, double l, int xn, 
-					char *filename);
+					const char *filename);
 
 /********************************************************************************
 * Function Name: 	m_plot_2d													*
@@ -150,7 +150,7 @@ void cm_plot_1d(cuDoubleComplex *psi_0, cuDoubleComplex *psi, double l, int xn,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_2d(double *Re_0, double *Im_0, double *Re, double *Im, double *max, 
-				   double lx, double ly, int xn, int yn, int tn, char *filename);
+				   double lx, double ly, int xn, int yn, int tn, const char *filename);
 
 /********************************************************************************
 * Function Name: 	m_plot_2df													*
@@ -172,7 +172,7 @@ void m_plot_2d(double *Re_0, double *Im_0, double *Re, double *Im, double *max,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_2df(float *Re_0, float *Im_0, float *Re, float *Im, float *max, 
-				   float lx, float ly, int xn, int yn, int tn, char *filename);
+				   float lx, float ly, int xn, int yn, int tn, const char *filename);
 
 /********************************************************************************
 * Function Name: 	cm_plot_2d													*
@@ -191,7 +191,7 @@ void m_plot_2df(float *Re_0, float *Im_0, float *Re, float *Im, float *max,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_2d(cuDoubleComplex *psi_0, cuDoubleComplex *psi, double *max, 
-				   double lx, double ly, int xn, int yn, int tn, char *filename);
+				   double lx, double ly, int xn, int yn, int tn, const char *filename);
 
 /********************************************************************************
 * Function Name: 	cm_plot_2df													*
@@ -210,7 +210,7 @@ void cm_plot_2d(cuDoubleComplex *psi_0, cuDoubleComplex *psi, double *max,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_2df(cuComplex *psi_0, cuComplex *psi, float *max, 
-				   float lx, float ly, int xn, int yn, int tn, char *filename);
+				   float lx, float ly, int xn, int yn, int tn, const char *filename);
 /********************************************************************************
 * Function Name: 	max_index													*
 * Description:		This function takes in an array and returns the index of the*
@@ -246,7 +246,7 @@ int max_indexf(float *arr, int size);
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3dcf(float *x, float *y, float *z, cuComplex *psi, 
-				int xn,	int yn, int zn, char *filename);
+				int xn,	int yn, int zn, const char *filename);
 
 /********************************************************************************
 * Function Name: 	vtk_3dc		 												*
@@ -263,7 +263,7 @@ void vtk_3dcf(float *x, float *y, float *z, cuComplex *psi,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3dc(double *x, double *y, double *z, cuDoubleComplex *psi, 
-				int xn,	int yn, int zn, char *filename);
+				int xn,	int yn, int zn, const char *filename);
 
 /********************************************************************************
 * Function Name: 	vtk_3df		 												*
@@ -280,7 +280,7 @@ void vtk_3dc(double *x, double *y, double *z, cuDoubleComplex *psi,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3df(float *x, float *y, float *z, float *Re, float *Im, 
-				int xn,	int yn, int zn, char *filename);
+				int xn,	int yn, int zn, const char *filename);
 /********************************************************************************
 * Function Name: 	vtk_3d 		 												*
 * Description:		This takes in a 3D function and x,y,z arrays and prints an	*
@@ -296,7 +296,7 @@ void vtk_3df(float *x, float *y, float *z, float *Re, float *Im,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3d(double *x, double *y, double *z, double *Re, double *Im, 
-				int xn,	int yn, int zn, char *filename);
+				int xn,	int yn, int zn, const char *filename);
 
 /********************************************************************************
 * Function Name: 	cmax_psi													*
@@ -338,6 +338,19 @@ void max_psi(double *d_Re, double *d_Im, double *max, int step, int size);
 *					--> size: the size of d_R and d_I.							*
 ********************************************************************************/
 void max_psif(float *d_Re, float *d_Im, float *max, int step, int size);
+
+/********************************************************************************
+* Function Name: 	print_time													*
+* Description:		This takes in an array of doubles, the number of temporal   *
+*					nodes as well as the timing interval and name of file and   *
+*					outputs a MATLAB file with timing data						*
+*					amplitude in an array for this time step.					*
+* Parameters:		--> time: array for time									*
+* 					--> tn:   number of temporal nodes							*
+*					--> interval: timing interval (reading every n nodes)		*
+*					--> file: string naming the file							*
+********************************************************************************/
+void print_time(float *time, int tn, int interval, char *file);
 
 #endif
 

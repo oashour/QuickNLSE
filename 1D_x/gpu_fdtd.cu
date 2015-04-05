@@ -22,7 +22,7 @@
 
 // Output files
 #define PLOT_F "gpu_fdtd_plot.m"
-#define TIME_F "gpu_fdtd_time.m"
+#define TIME_F argv[2]
 
 // Function Prototypes
 __global__ void Re_lin_kernel(double *Re, double *Im, double dt, int xn, double dx);

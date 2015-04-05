@@ -1,0 +1,55 @@
+#!/bin/bash
+
+function merge () {
+	# Figure out file names and stuff
+	cd 1D_x
+	out_f="$1""_time_f.m"
+    if [[ -e $out_f ]]
+	then
+		rm $out_f
+	fi
+
+	for i in `seq 1 $2`;
+	do
+		cfile="${1}_time_${i}"".m"
+		awk 'NR==2' $cfile 	>> $out_f
+	done
+}
+
+red=`tput setaf 1`
+green=`tput setaf 2`
+yellow=`tput setaf 3`
+blue=`tput setaf 4`
+bold=`tput bold`
+reset=`tput sgr0`
+
+platform=`echo $1| cut -d'_' -f 1`
+echo "type is $platform"
+if [[ "$platform" == "gpu" ]]
+then
+	ext=".cu"
+else
+	ext=".c"
+fi
+sourcefile="$1""$ext"
+outfile="$1"".out"
+echo "Source file: $sourcefile, out file: $outfile"
+
+echo "${yellow}${bold}Top level messages are colored."
+echo
+echo "${red}${bold}Compiling.${reset}"
+./compile -p $NLSE/1D_x -o -c $sourcefile 
+
+runs=10
+for (( c=1; c<=$runs; c++ ))
+{
+	echo "${blue}${bold}Doing run $c out of $runs."
+	echo "${reset}"
+	./compile -p $NLSE/1D_x -e $c -x $outfile
+	# echo "${blue}${bold}Sending email!"
+	# echo "Timestap: $(date)" |\
+	#				mail -s "Run $c out of $runs complete." omar.ashour@qatar.tamu.edu
+}
+
+merge $1 $runs
+exit

@@ -390,36 +390,34 @@ void max_psi(double *Re, double *Im, double *max, int step, int size)
 }
 
 /********************************************************************************
-* Function Name: 	cu_max_psi													*
-* Description:		This is the CUDA version of max_psi. This takes in a complex*
-*					function's real and imaginary parts, find the magnitude 	*
-*					at each point and save the maximum amplitude in an array	*
-*					for this time step.											*
-* Parameters:		--> d_R: device array, real part of function.				*
-* 					--> d_I: device array, Imaginary part of function.			*
-*					--> max: host array, used to save max value of |f|.			*
-*					--> step: the current time step.							*
-*					--> size: the size of d_R and d_I.							*
+* Function Name: 	print_time													*
+* Description:		This takes in an array of doubles, the number of temporal   *
+*					nodes as well as the timing interval and name of file and   *
+*					outputs a MATLAB file with timing data						*
+*					amplitude in an array for this time step.					*
+* Parameters:		--> time: array for time									*
+* 					--> tn:   number of temporal nodes							*
+*					--> interval: timing interval (reading every n nodes)		*
+*					--> file: string naming the file							*
 ********************************************************************************/
-/*
-void cu_max_psi(double *d_Re, double *d_Im, double *max, int step, int size)
+void print_time(double *time, int tn, int interval, char *file)
 {
-	double *h_R	= (double*)malloc(sizeof(double) * size);
-    double *h_I	= (double*)malloc(sizeof(double) * size);   
-	double *h_A	= (double*)malloc(sizeof(double) * size);
-    
-	cudaMemcpy(h_Re, d_Re, sizeof(double) * size, cudaMemcpyDeviceToHost);
-	cudaMemcpy(h_Im, d_Im, sizeof(double) * size, cudaMemcpyDeviceToHost);
+	// Open file
+	FILE *fp = fopen(file, "w");
+	
+	// Print basic info
+	fprintf(fp, "steps = [0:%d:%d];\n", interval, tn);
+	
+	// Delete .m extension
+	file[(strlen(file)-2)] = '\0';
+	fprintf(fp, "%s = [0, ", file);
 
-	for(int i = 0; i < size; i++)
-		h_A[i] = sqrt(h_Re[i] * h_Re[i] + h_Im[i] * h_Im[i]);
-
-    int index = max_index(h_A, size);
-
-	max[step] = h_A[index];
-
-    free(h_Re);
-	free(h_Im);
-	free(h_A);
+	// Print time
+	for (int i = 0; i < tn/interval; i++)
+		fprintf(fp, "%f, ", time[i]);
+	
+	// Wrap up timing file
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, %s, '-*r');\n,", file);
+	fclose(fp);
 }
-*/

@@ -7,11 +7,11 @@
 #include "../lib/helpers.h"
 #include <fftw3.h>
 
-#define M_PI 3.14159265358979323846264338327
+// #define M_PI 3.14159265358979323846264338327
 
 // Grid parameters
-#define XN	1024				// number of Fourier Modes
-#define TN	100000				// number of temporal nodes
+#define XN	32					// number of Fourier Modes
+#define TN	10000				// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
 #define DX	(2*L / XN)			// spatial step size
@@ -22,7 +22,7 @@
 
 // Output files
 #define PLOT_F "cpu_fft_plot.m"
-#define TIME_F "cpu_fft_time.m"
+#define TIME_F argv[1]
 
 // Function Prototypes
 void nonlin(fftw_complex *psi, double dt, int xn);
@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
 	// Allocate the arrays
     double *x = (double*)malloc(sizeof(double) * XN);
     double *k2 = (double*)malloc(sizeof(double) * XN);
+	double *time = (double*)malloc(sizeof(double) * TN/IRVL);
 	fftw_complex *psi = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * XN);
 	fftw_complex *psi_0 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * XN);
 	
@@ -66,11 +67,6 @@ int main(int argc, char *argv[])
 	// Forward transform
 	fftw_execute(forward);
 	
-	// Print timing info to file
-	FILE *fp = fopen(TIME_F, "w");
-	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
-	fprintf(fp, "time = [0, ");
-	
 	// Timing starts here
 	double t1 = get_cpu_time();
 	
@@ -91,12 +87,10 @@ int main(int argc, char *argv[])
 		lin(psi, k2, DT/2, XN);
 		// Print time at specific intervals
 		if(i % IRVL == 0)
-			fprintf(fp, "%f, ", get_cpu_time()-t1);
+			time[i/IRVL] = get_cpu_time()-t1;
 	}
-	// Wrap up timing file
-	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time, '-*r');\n");
-	fclose(fp);
+	// Plot timing results
+    print_time(time, TN, IRVL, TIME_F);
 	
 	// Backward transform to retreive data
 	fftw_execute(backward);
@@ -114,6 +108,7 @@ int main(int argc, char *argv[])
 	free(x);
 	free(k2);
 	free(kx);
+	free(time);
 
 	return 0;
 }
@@ -137,3 +132,4 @@ void normalize(fftw_complex *psi, int size)
 	for (int i = 0; i < size; i++)
 		psi[i] = psi[i]/size;
 }
+

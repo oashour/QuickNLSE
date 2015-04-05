@@ -7,8 +7,8 @@
 #include "../lib/timers.h"
 
 // Grid Parameters
-#define XN	1024				// number of spatial nodes
-#define TN	100000				// number of temporal nodes
+#define XN	32					// number of spatial nodes
+#define TN	10000  				// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
 #define DX	(2*L / XN)			// spatial step size
@@ -19,7 +19,7 @@
 
 // Output files
 #define PLOT_F "cpu_fdtd_plot.m"
-#define TIME_F "cpu_fdtd_time.m"
+#define TIME_F argv[1]
 
 // Function Prototypes
 void Re_lin(double *Re, double *Im, double dt, int xn, double dx);
@@ -37,7 +37,8 @@ int main(int argc, char *argv[])
     double *Im = (double*)malloc(sizeof(double) * XN);
 	double *Re_0 = (double*)malloc(sizeof(double) * XN);
     double *Im_0 = (double*)malloc(sizeof(double) * XN);
-	
+	double *time = (double*)malloc(sizeof(double) * TN/IRVL);
+
 	// Initial conditions
 	for (int i = 0; i < XN; i++)
 	{
@@ -47,11 +48,6 @@ int main(int argc, char *argv[])
 		Re_0[i] = Re[i];
 		Im_0[i] = Im[i];
 	}
-	
-	// Print timing info to file
-	FILE *fp = fopen(TIME_F, "w");
-	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
-	fprintf(fp, "time = [0, ");
 	
 	// Timing starts here
 	double t1 = get_cpu_time();
@@ -69,13 +65,11 @@ int main(int argc, char *argv[])
         Im_lin(Re, Im, DT*0.5, XN, DX);
 		// Print time at specific intervals
 		if(i % IRVL == 0)
-			fprintf(fp, "%f, ", get_cpu_time()-t1);
+			time[i/IRVL-1] = get_cpu_time()-t1;
 	}
-	// Wrap up timing file
-	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time, '-*r');\n");
-	fclose(fp);
-	
+	// Plot timing results
+    print_time(time, TN, IRVL, TIME_F);
+
 	// Plot results
 	m_plot_1d(Re_0, Im_0, Re, Im, L, XN, PLOT_F);
 
@@ -85,6 +79,7 @@ int main(int argc, char *argv[])
 	free(Re_0); 
 	free(Im_0); 
 	free(x); 
+	free(time);
 
 	return 0;
 }

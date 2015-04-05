@@ -6,26 +6,30 @@
 #include "../lib/cu_helpers.h"
 
 // Grid Parameters
-#define XN	1024				// number of spatial ndes
-#define TN	100000				// number of temporal nodes
+#define XN	32	 		   		// number of spatial ndes
+#define TN	10000				// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
 #define DX	(2*L / XN)			// spatial step size
 #define DT	(TT / TN)			// temporal step size
+
+// Timing parameters
+#define IRVL  100				// Timing interval. Take a reading every N iterations.
 
 // Gaussian Pulse Parameters
 #define A 1.0
 #define R 2.0
 
 // Output files
-#define PLOT_F "gpu_fdtds_plot.m"
-#define TIME_F "gpu_fdtds_time.m"
+#define PLOT_F "gpu_fdtds_plot.m" 
+#define TIME_F argv[1]
 
+// Function prototypes
 __global__ void R_lin_kernel(float *Re, float *Im, float dt, int xn, float dx);
 __global__ void I_lin_kernel(float *Re, float *Im, float dt, int xn, float dx);
 __global__ void nonlin_kernel(float *Re, float *Im, float dt, int xn);
 
-int main(void)
+int main(int argc, char *argv[])
 {
     // Timing info
 	cudaEvent_t begin_event, end_event;
@@ -41,6 +45,7 @@ int main(void)
     float *h_Im	= (float*)malloc(sizeof(float) * XN);   
 	float *h_Re_0 	= (float*)malloc(sizeof(float) * XN);
     float *h_Im_0	= (float*)malloc(sizeof(float) * XN);   
+	float *h_time = (float*)malloc(sizeof(float) * TN/IRVL);
 	
 	// Initial conditions on host
 	for(int i = 0; i < XN ; i++)
@@ -64,13 +69,8 @@ int main(void)
 	dim3 threadsPerBlock(128,1,1);
 	dim3 blocksPerGrid((XN + 127)/128,1,1);
 
-	// Print timing info to file
-	float time_value;
-	FILE *fp = fopen(TIME_F, "w");
-	fprintf(fp, "steps = [0:100:%d];\n", TN);
-	fprintf(fp, "time = [0, ");
-	
 	// Timing starts here
+	float time_value;
 	cudaEventRecord(begin_event, 0);
 	
 	// Start time evolution
@@ -100,18 +100,16 @@ int main(void)
 		CUDAR_SAFE_CALL(cudaPeekAtLastError());
 		#endif // CUDAR_ERROR_CHECKING
 		// Print time at specific intervals
-		if(i % 100 == 0)
+		if(i % IRVL == 0)
 		{
 			cudaEventRecord(end_event, 0);
 			cudaEventSynchronize(end_event);
 			cudaEventElapsedTime(&time_value, begin_event, end_event);
-			fprintf(fp, "%f, ", time_value);
+			h_time[i/IRVL-1] = time_value;
 		}
 	}
-	// Wrap up timing file 
-	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time/1000, '-*r');\n");
-	fclose(fp);
+	// Plot timing results
+    print_time(h_time, TN, IRVL, TIME_F);
  
 	// Copy results to device
 	CUDAR_SAFE_CALL(cudaMemcpy(h_Re, d_Re, sizeof(float)*XN, 
@@ -128,6 +126,7 @@ int main(void)
 	free(h_Re_0); 
 	free(h_Im_0); 
 	free(h_x); 
+	free(h_time);
 	CUDAR_SAFE_CALL(cudaFree(d_Re)); 
 	CUDAR_SAFE_CALL(cudaFree(d_Im)); 
 

@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <string.h>
 
 // MAX_PSI_CHECKING
 #define MAX_PSI_CHECKING 0
@@ -153,17 +154,17 @@ void cmax_psi(complex double *psi, double *max, int step, int size);
 void max_psi(double *Re, double *Im, double *max, int step, int size);
 
 /********************************************************************************
-* Function Name: 	cu_max_psi													*
-* Description:		This is the CUDA version of max_psi. This takes in a complex*
-*					function's real and imaginary parts, find the magnitude 	*
-*					at each point and save the maximum amplitude in an array	*
-*					for this time step.											*
-* Parameters:		--> d_R: device array, real part of function.				*
-* 					--> d_I: device array, Imaginary part of function.			*
-*					--> max: host array, used to save max value of |f|.			*
-*					--> step: the current time step.							*
-*					--> size: the size of d_R and d_I.							*
+* Function Name: 	print_time													*
+* Description:		This takes in an array of doubles, the number of temporal   *
+*					nodes as well as the timing interval and name of file and   *
+*					outputs a MATLAB file with timing data						*
+*					amplitude in an array for this time step.					*
+* Parameters:		--> time: array for time									*
+* 					--> tn:   number of temporal nodes							*
+*					--> interval: timing interval (reading every n nodes)		*
+*					--> file: string naming the file							*
 ********************************************************************************/
-void cu_max_psi(double *d_Re, double *d_Im, double *max, int step, int size);
+void print_time(double *time, int tn, int interval, char *file);
+
 
 #endif

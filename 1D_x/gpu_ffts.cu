@@ -19,7 +19,7 @@
 
 // Output files
 #define PLOT_F "gpu_ffts_plot.m"
-#define TIME_F "gpu_ffts_time.m"
+#define TIME_F argv[2]
 
 // Function prototypes
 __global__ void nonlin(cufftComplex *psi, float dt, int xn);

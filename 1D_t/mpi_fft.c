@@ -11,8 +11,8 @@
 #define M_PI 3.14159265358979323846264338327
 
 // Grid parameters
-#define XN	1024		  // number of Fourier Modes
-#define TN	100000		  // number of temporal nodes
+#define XN	32		  // number of Fourier Modes
+#define TN	10000		  // number of temporal nodes
 #define L	10.0		  // Spatial Period
 #define TT	10.0          // Max time
 #define DX	(2*L / XN) 	  // spatial step size
@@ -26,7 +26,7 @@
 
 // Output files
 #define PLOT_F "mpi_fft_plot.m"
-#define TIME_F "mpi_fft_time.m"
+#define TIME_F argv[1]
 
 // Function Prototypes
 void nonlin(fftw_complex *psi, double dt, ptrdiff_t end, int rank, int p);
@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 	// Allocate the arrays
 	fftw_complex *psi = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * alloc_local);
 	double *kx = (double*)malloc(sizeof(double) * local_ni);
+	double *time = (double*)malloc(sizeof(double) * TN/IRVL);
 	fftw_complex *psi_new, *psi_0;
 	double *kx_0;
 	
@@ -101,15 +102,6 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < local_ni; i++)
 		k2[i] = kx[i]*kx[i];
     
-	// Print timing info to file
-	FILE *fp;
-	if (rank == ROOT)
-	{
-		fp = fopen(TIME_F, "w");
-		fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
-		fprintf(fp, "time = [0, ");
-	}
-
 	// Forward transform
 	fftw_execute(forward);
 	
@@ -134,16 +126,8 @@ int main(int argc, char *argv[])
 		// Print time at specific intervals
 		if (rank == ROOT)
 			if (i % IRVL == 0)
-				fprintf(fp, "%f, ", MPI_Wtime() - t1);
+				time[i/IRVL-1] = MPI_Wtime()-t1;
 	}
-	// Wrap up timing file
-	if (rank == ROOT)
-	{
-		fprintf(fp, "];\n");
-		fprintf(fp, "plot(steps, time, '-*r');\n");
-		fclose(fp);
-	}
-	
 	// Backward transform to retreive data
 	fftw_execute(backward);
 	// Normalize the transform
@@ -160,6 +144,9 @@ int main(int argc, char *argv[])
 	// Plot results
 	if(rank == ROOT)
 	{
+		// Plot timing results
+		print_time(time, TN, IRVL, TIME_F);
+
 		cm_plot_1d(psi_0, psi_new, L, XN, PLOT_F);
 		fftw_free(psi_new); fftw_free(psi_0); free(kx_0);
 	}
@@ -170,6 +157,7 @@ int main(int argc, char *argv[])
 	fftw_free(psi);
 	free(k2);
 	free(kx);
+    free(time);
 
     MPI_Finalize();
 

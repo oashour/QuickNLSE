@@ -318,7 +318,7 @@ const char *_cudaGetErrorEnum(cudaError_t error)
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im, 
-				   double l, int xn, char *filename)
+				   double l, int xn, const char *filename)
 {
 	FILE *matlab_file;
 	matlab_file = fopen(filename, "w");
@@ -359,7 +359,7 @@ void m_plot_1d(double *Re_0, double *Im_0, double *Re, double *Im,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_1df(float *Re_0, float *Im_0, float *Re, float *Im, 
-				   float l, int xn, char *filename)
+				   float l, int xn, const char *filename)
 {
 	FILE *matlab_file;
 	matlab_file = fopen(filename, "w");
@@ -396,7 +396,7 @@ void m_plot_1df(float *Re_0, float *Im_0, float *Re, float *Im,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_1d(cuDoubleComplex *f_0, cuDoubleComplex *f, 
-				    double l, int xn, char *filename)
+				    double l, int xn, const char *filename)
 {
 	FILE *matlab_file;
 	matlab_file = fopen(filename, "w");
@@ -434,7 +434,7 @@ void cm_plot_1d(cuDoubleComplex *f_0, cuDoubleComplex *f,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_1df(cuComplex *f_0, cuComplex *f, 
-				    float l, int xn, char *filename)
+				    float l, int xn, const char *filename)
 {
 	FILE *matlab_file;
 	matlab_file = fopen(filename, "w");
@@ -481,7 +481,7 @@ void cm_plot_1df(cuComplex *f_0, cuComplex *f,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_2df(float *Re_0, float *Im_0, float *Re, float *Im, float *max, 
-				   float lx, float ly, int xn, int yn, int tn, char *filename)
+				   float lx, float ly, int xn, int yn, int tn, const char *filename)
 {
     FILE *matlab_file = fopen(filename, "w");
 
@@ -551,7 +551,7 @@ void m_plot_2df(float *Re_0, float *Im_0, float *Re, float *Im, float *max,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void m_plot_2d(double *Re_0, double *Im_0, double *Re, double *Im, double *max, 
-				   double lx, double ly, int xn, int yn, int tn, char *filename)
+				   double lx, double ly, int xn, int yn, int tn, const char *filename)
 {
     FILE *matlab_file = fopen(filename, "w");
 
@@ -618,7 +618,7 @@ void m_plot_2d(double *Re_0, double *Im_0, double *Re, double *Im, double *max,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_2d(cuDoubleComplex *psi_0, cuDoubleComplex *psi, double *max, 
-				   double lx, double ly, int xn, int yn, int tn, char *filename)
+				   double lx, double ly, int xn, int yn, int tn, const char *filename)
 {
     FILE *matlab_file = fopen(filename, "w");
 
@@ -684,7 +684,7 @@ void cm_plot_2d(cuDoubleComplex *psi_0, cuDoubleComplex *psi, double *max,
 *					--> filename: name of file generated (including .m)			*
 ********************************************************************************/
 void cm_plot_2df(cuComplex *psi_0, cuComplex *psi, float *max, 
-				   float lx, float ly, int xn, int yn, int tn, char *filename)
+				   float lx, float ly, int xn, int yn, int tn, const char *filename)
 {
     FILE *matlab_file = fopen(filename, "w");
 
@@ -748,7 +748,7 @@ void cm_plot_2df(cuComplex *psi_0, cuComplex *psi, float *max,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3dcf(float *x, float *y, float *z, cuComplex *psi, 
-			    int xn, int yn, int zn, char *filename)
+			    int xn, int yn, int zn, const char *filename)
 {
 	float *f = (float*)malloc(sizeof(float)*xn*yn*zn);
 	
@@ -799,7 +799,7 @@ void vtk_3dcf(float *x, float *y, float *z, cuComplex *psi,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3dc(double *x, double *y, double *z, cuDoubleComplex *psi, 
-			    int xn, int yn, int zn, char *filename)
+			    int xn, int yn, int zn, const char *filename)
 {
 	double *f = (double*)malloc(sizeof(double)*xn*yn*zn);
 	
@@ -851,7 +851,7 @@ void vtk_3dc(double *x, double *y, double *z, cuDoubleComplex *psi,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3df(float *x, float *y, float *z, float *Re, float *Im, 
-			    int xn, int yn, int zn, char *filename)
+			    int xn, int yn, int zn, const char *filename)
 {
 	float *f = (float*)malloc(sizeof(float)*xn*yn*zn);
 	
@@ -906,7 +906,7 @@ void vtk_3df(float *x, float *y, float *z, float *Re, float *Im,
 *					--> filename: name of file generated (including .vtk)		*
 ********************************************************************************/
 void vtk_3d(double *x, double *y, double *z, double *Re, double *Im, 
-			    int xn, int yn, int zn, char *filename)
+			    int xn, int yn, int zn, const char *filename)
 {
 	double *f = (double*)malloc(sizeof(double)*xn*yn*zn);
 	
@@ -1050,3 +1050,37 @@ void max_psif(float *d_Re, float *d_Im, float *max, int step, int size)
 	free(h_Im);
 	free(h_A);
 }
+
+/********************************************************************************
+* Function Name: 	print_time													*
+* Description:		This takes in an array of doubles, the number of temporal   *
+*					nodes as well as the timing interval and name of file and   *
+*					outputs a MATLAB file with timing data						*
+*					amplitude in an array for this time step.					*
+* Parameters:		--> time: array for time									*
+* 					--> tn:   number of temporal nodes							*
+*					--> interval: timing interval (reading every n nodes)		*
+*					--> file: string naming the file							*
+********************************************************************************/
+void print_time(float *time, int tn, int interval, char *file)
+{
+	// Open file
+	FILE *fp = fopen(file, "w");
+	
+	// Print basic info
+	fprintf(fp, "steps = [0:%d:%d];\n", interval, tn);
+	
+	// Delete .m extension
+	file[(strlen(file)-2)] = '\0';
+	fprintf(fp, "%s = [0, ", file);
+
+	// Print time
+	for (int i = 0; i < tn/interval; i++)
+		fprintf(fp, "%f, ", time[i]);
+	
+	// Wrap up timing file
+	fprintf(fp, "];\n");
+	fprintf(fp, "plot(steps, %s, '-*r');\n,", file);
+	fclose(fp);
+}
+

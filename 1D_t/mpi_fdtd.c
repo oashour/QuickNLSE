@@ -12,8 +12,8 @@
 #define TAG2 2                  // Send message left
 
 // Grid Parameters
-#define XN	 1024				// Number of spatial ndes
-#define TN	 100000  			// Number of temporal nodes
+#define XN	 32				// Number of spatial ndes
+#define TN	 10000  			// Number of temporal nodes
 #define L	 10.0				// Spatial Period
 #define TT	 10.0               // Max time
 #define DX	 (2*L / XN)			// spatial step size
@@ -24,7 +24,7 @@
 
 // Output files
 #define PLOT_F "mpi_fdtd_plot.m"
-#define TIME_F "mpi_fdtd_time.m"
+#define TIME_F argv[1]
 
 // Function Prototypes
 void Re_lin(double *Re, double *Im, double dt, double dx, int p_nodes, int rank, int p);
@@ -54,7 +54,8 @@ int main(int argc, char** argv)
 	double *Re_0, *Im_0, *Re_new, *Im_new;
    	double *Re = (double*)malloc(sizeof(double) * (p_nodes+2));
    	double *Im = (double*)malloc(sizeof(double) * (p_nodes+2));
-    
+	double *time = (double*)malloc(sizeof(double) * TN/IRVL);
+
 	// Add ghost values to the arrays
 	Re[0] = 0; Im[0] = 0;
 	Re[p_nodes+1] = 0; Im[p_nodes+1] = 0;
@@ -84,15 +85,6 @@ int main(int argc, char** argv)
 	// Sync between nodes in preparation for time evolution
     syncImRe(rank, p, p_nodes, Re, Im, &status);
 	
-	// Print timing info to file
-	FILE *fp;
-	if (rank == ROOT)
-	{
-		fp = fopen(TIME_F, "w");
-		fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
-		fprintf(fp, "time = [0, ");
-	}
-
 	// Timing starts here
 	double t1 = MPI_Wtime();
 
@@ -115,15 +107,14 @@ int main(int argc, char** argv)
  		// Print time at specific intervals
 		if (rank == ROOT)
 			if (i % IRVL == 0)
-				fprintf(fp, "%f, ", MPI_Wtime() -t1);
+				time[i/IRVL-1] = MPI_Wtime()-t1;
 	}
 	// Wrap up timing file
 	if (rank == ROOT)
 	{
-		fprintf(fp, "];\n");
-		fprintf(fp, "plot(steps, time, '-*r');\n");
-		fclose(fp);
-
+		// Plot timing results
+		print_time(time, TN, IRVL, TIME_F);
+		
 		// Prepare receiving arrays for final results
 		Re_new = (double*)malloc(sizeof(double) * XN);
 		Im_new = (double*)malloc(sizeof(double) * XN);
@@ -145,7 +136,8 @@ int main(int argc, char** argv)
 	// Clean up 
 	free(Re); 
 	free(Im); 
-	
+	free(time);
+
     MPI_Finalize();
 
 	return 0;

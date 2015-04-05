@@ -7,8 +7,8 @@
 #include <cufft.h>
 
 // Grid Parameters
-#define XN	1024					// Number of Fourier modes
-#define TN	100000					// Number of temporal nodes
+#define XN	32						// Number of Fourier modes
+#define TN	10000					// Number of temporal nodes
 #define LX	10.0					// x-spatial domain [-LX,LX)
 #define TT	10.0            		// Max time
 #define DX	(2*LX / XN)				// x-spatial step size
@@ -18,15 +18,15 @@
 #define IRVL  100				// Timing interval. Take a reading every N iterations.
 
 // Output files
-#define PLOT_F "gpu_ffts_plot.m"
-#define TIME_F "gpu_ffts_time.m"
+#define PLOT_F "gpu_ffts_plot.m" 
+#define TIME_F argv[1]
 
 // Function prototypes
 __global__ void nonlin(cufftComplex *psi, float dt, int xn);
 __global__ void lin(cufftComplex *psi, float *k2, float dt, int xn);
 __global__ void normalize(cufftComplex *psi, int size);
 
-int main(void)
+int main(int argc, char *argv[])
 {                                                                          
     // Timing info
 	cudaEvent_t begin_event, end_event;
@@ -40,6 +40,7 @@ int main(void)
     float *h_x = (float*)malloc(sizeof(float) * XN);
 	float *h_k2 = (float*)malloc(sizeof(float) * XN);
 	float *h_kx = (float*)malloc(XN * sizeof(float));
+	float *h_time = (float*)malloc(sizeof(float) * TN/IRVL);
 	cufftComplex *h_psi = (cufftComplex*)malloc(sizeof(cufftComplex)*XN);
 	cufftComplex *h_psi_0 = (cufftComplex*)malloc(sizeof(cufftComplex)*XN);
 	
@@ -77,16 +78,11 @@ int main(void)
 	dim3 threadsPerBlock(128,1,1);
 	dim3 blocksPerGrid((XN + 127)/128,1,1);
 
-	// Print timing info to file
-	float time_value;
-	FILE *fp = fopen(TIME_F, "w");
-	fprintf(fp, "steps = [0:%d:%d];\n", IRVL, TN);
-	fprintf(fp, "time = [0, ");
-	
 	// Forward transform
 	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_FORWARD));
 	
 	// Timing starts here
+	float time_value;
 	cudaEventRecord(begin_event, 0);
 	
 	// Start time evolution
@@ -109,13 +105,11 @@ int main(void)
 			cudaEventRecord(end_event, 0);
 			cudaEventSynchronize(end_event);
 			cudaEventElapsedTime(&time_value, begin_event, end_event);
-			fprintf(fp, "%f, ", time_value);
+			h_time[i/IRVL-1] = time_value;
 		}
 	}
-	// Wrap up timing file 
-	fprintf(fp, "];\n");
-	fprintf(fp, "plot(steps, time/1000, '-*r');\n");
-	fclose(fp);
+	// Plot timing results
+    print_time(h_time, TN, IRVL, TIME_F);
 	
 	// Backward transform to retreive data
 	CUFFT_SAFE_CALL(cufftExecC2C(plan, d_psi, d_psi, CUFFT_INVERSE));
@@ -135,6 +129,7 @@ int main(void)
 	free(h_kx);
     free(h_psi_0);
 	free(h_psi);
+	free(h_time);
 	cudaFree(d_psi);
 	cudaFree(d_k2);
 	

@@ -26,7 +26,7 @@
 
 // Output files
 #define PLOT_F "mpi_fft_plot.m"
-#define TIME_F "mpi_fft_time.m"
+#define TIME_F argv[2]
 
 // Function Prototypes
 void nonlin(fftw_complex *psi, double dt, ptrdiff_t end, int rank, int p);
