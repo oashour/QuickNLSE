@@ -1,4 +1,7 @@
-# nlse
+# QuickNLSE
+
+NOTE: This is an old work and is unrevised. It's a complete mess and I intend to overhaul it soon. Please use my MATLAB library called HighNLSE, it's much slower, of course, but will get the job done and I even coded 8th order algorithms.
+
 Numerical Solutions for the nonlinear Schrodinger equation using CPU, CUDA and MPI.
 
 Note: for compiling all these files you can use the compile script as follows:
