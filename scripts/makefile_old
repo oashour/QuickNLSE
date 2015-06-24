@@ -1,0 +1,38 @@
+IDIR =../lib
+CFLAGS=-I$(IDIR)
+
+ODIR=obj
+LDIR =../lib
+
+LIBS=-lm -lfftw3 -lcufft -Wall
+
+#_DEPS = helpers.h timer.h
+# DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+
+#_OBJ = timers.o helpers.o cpu_fdtd.o 
+#OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+
+
+
+: $(OBJ)
+	gcc -o $@ $^ $(CFLAGS) $(LIBS)
+
+#_OBJ=timers.o helpers.o cpu_fdtd.o  \
+OBJ=$(patsubst %,$(ODIR)/%,$(_OBJ)) 
+cpu_finite: CC:=gcc \
+			_DEPS:=helpers.h timers.h \
+			DEPS:=$(patsubst %,$(IDIR)/%,$(_DEPS)) 
+cpu_finite: 
+	@echo "CC: $(CC)"
+
+$(ODIR)/%.o: %.c $(DEPS)
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+# gpu: CC=nvcc
+#gpu:
+#	echo $(CC)
+
+#.PHONY: clean
+
+#clean:
+#	rm -f $(ODIR)/*.o *~ core $(INCDIR)/*~ 

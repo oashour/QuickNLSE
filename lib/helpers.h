@@ -9,7 +9,7 @@
 #include <string.h>
 
 // MAX_PSI_CHECKING
-#define MAX_PSI_CHECKING 0
+#define MAX_PSI_CHECKING 1
 
 // Index flattening macro 
 // Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  

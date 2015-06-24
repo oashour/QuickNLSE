@@ -10,8 +10,8 @@
 // #define M_PI 3.14159265358979323846264338327
 
 // Grid parameters
-#define XN	32					// number of Fourier Modes
-#define TN	10000				// number of temporal nodes
+#define XN	128	   			// number of Fourier Modes
+#define TN	10000000   			// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
 #define DX	(2*L / XN)			// spatial step size

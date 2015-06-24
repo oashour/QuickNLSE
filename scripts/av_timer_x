@@ -2,7 +2,7 @@
 
 function merge () {
 	# Figure out file names and stuff
-	cd 1D_x
+	cd ../2D_x
 	out_f="$1""_time_f.m"
     if [[ -e $out_f ]]
 	then
@@ -38,14 +38,14 @@ echo "Source file: $sourcefile, out file: $outfile"
 echo "${yellow}${bold}Top level messages are colored."
 echo
 echo "${red}${bold}Compiling.${reset}"
-./compile -p $NLSE/1D_x -o -c $sourcefile 
+./compile -p $NLSE/2D_x -o -c $sourcefile 
 
 runs=10
 for (( c=1; c<=$runs; c++ ))
 {
 	echo "${blue}${bold}Doing run $c out of $runs."
 	echo "${reset}"
-	./compile -p $NLSE/1D_x -e $c -x $outfile
+	./compile -p $NLSE/2D_x -e $c -x $outfile
 	# echo "${blue}${bold}Sending email!"
 	# echo "Timestap: $(date)" |\
 	#				mail -s "Run $c out of $runs complete." omar.ashour@qatar.tamu.edu

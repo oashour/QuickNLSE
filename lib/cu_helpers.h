@@ -8,9 +8,9 @@
 /********************************************************************************
 *							GENERAL PURPOSE MACROS								*
 ********************************************************************************/
-#define CUFFT_ERROR_CHECKING 0
-#define CUDAR_ERROR_CHECKING 0
-#define MAX_PSI_CHECKING 0
+#define CUFFT_ERROR_CHECKING 1
+#define CUDAR_ERROR_CHECKING 1
+#define MAX_PSI_CHECKING 1
 
 // Index flattening macro 
 // Flat[x + WIDTH * (y + DEPTH * z)] = Original[x, y, z]                  

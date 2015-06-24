@@ -7,8 +7,8 @@
 #include "../lib/timers.h"
 
 // Grid Parameters
-#define XN	32					// number of spatial nodes
-#define TN	10000  				// number of temporal nodes
+#define XN	128   		 		// number of spatial nodes
+#define TN	10000000  			// number of temporal nodes
 #define L	10.0				// Spatial Period
 #define TT	10.0                // Max time
 #define DX	(2*L / XN)			// spatial step size
